@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>管理後台</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>📋 歌單管理</h1>
+
+  <table border="1" id="table">
+    <tr>
+      <th>歌名</th>
+      <th>歌手</th>
+      <th>點歌者</th>
+      <th>時間</th>
+    </tr>
+  </table>
+
+  <script>
+    async function load() {
+      const res = await fetch("/api/requests");
+      const list = await res.json();
+      const table = document.getElementById("table");
+
+      list.forEach(r => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${r.title}</td>
+          <td>${r.artist}</td>
+          <td>${r.name}</td>
+          <td>${new Date(r.time).toLocaleString()}</td>
+        `;
+        table.appendChild(row);
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

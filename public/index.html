@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>點歌系統</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>🎵 點歌系統</h1>
+
+  <form id="songForm">
+    <input id="title" placeholder="歌名" required>
+    <input id="artist" placeholder="歌手 (選填)">
+    <input id="name" placeholder="你的名字 (選填)">
+    <button type="submit">送出點歌</button>
+  </form>
+
+  <p id="msg"></p>
+
+  <script>
+    document.getElementById("songForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const title = document.getElementById("title").value;
+      const artist = document.getElementById("artist").value;
+      const name = document.getElementById("name").value;
+
+      const res = await fetch("/api/request", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ title, artist, name })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById("msg").textContent = "已送出！";
+        e.target.reset();
+      }
+    });
+  </script>
+</body>
+</html>

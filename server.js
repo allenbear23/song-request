@@ -19,7 +19,7 @@ function extractVideoId(url) {
 
 // 抓影片標題
 async function fetchVideoTitle(videoId) {
-  const apiKey = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0"; // 替換成你的 API key
+  const apiKey = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0"; // 已經加引號
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
     const data = await res.json();
@@ -30,6 +30,7 @@ async function fetchVideoTitle(videoId) {
 
 // 觀眾送出點歌
 app.post('/request', async (req,res)=>{
+  console.log("Received request:", req.body); // debug log
   try{
     const { url } = req.body;
     if(!url) return res.status(400).json({ error: 'No URL provided' });
@@ -38,7 +39,7 @@ app.post('/request', async (req,res)=>{
     if(!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
 
     const title = await fetchVideoTitle(videoId);
-    if(!title) return res.status(500).json({ error: 'Failed to fetch video title' });
+    if(!title) return res.status(500).json({ error: 'Failed to fetch video title. Check API key or video URL.' });
 
     let queue = [];
     if(fs.existsSync('requests.json')){

@@ -4,15 +4,16 @@
 <meta charset="utf-8">
 <title>大螢幕點歌播放</title>
 <style>
-body { background: #000; color: #fff; text-align: center; font-family: Arial; }
-#player { width: 80vw; height: 45vw; max-height: 80vh; margin: 0 auto; }
-#current { font-size: 28px; margin-top: 15px; }
-#channel { font-size: 20px; color: #ccc; margin-bottom: 20px; }
-#queue { max-width: 800px; margin: 30px auto; text-align: left; }
-#queue ul { list-style: none; padding-left: 0; }
-#queue li { font-size: 16px; margin-bottom: 5px; display: flex; justify-content: space-between; }
-.del-btn { background: red; color: white; border: none; padding: 2px 6px; cursor: pointer; }
-button { padding: 15px 30px; font-size: 20px; margin-top: 30px; cursor: pointer; }
+body{background:#000;color:#fff;text-align:center;font-family:Arial;}
+#player{width:80vw;height:45vw;max-height:80vh;margin:0 auto;}
+#current{font-size:28px;margin-top:15px;}
+#channel{font-size:20px;color:#ccc;margin-bottom:20px;}
+#queue{max-width:800px;margin:30px auto;text-align:left;}
+#queue ul{list-style:none;padding-left:0;}
+#queue li{font-size:16px;margin-bottom:5px;display:flex;justify-content:space-between;}
+#queue li.playing{background:#444;color:#fff;font-weight:bold;} /* 高亮樣式 */
+.del-btn{background:red;color:white;border:none;padding:2px 6px;cursor:pointer;}
+button{padding:15px 30px;font-size:20px;margin-top:30px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -31,29 +32,30 @@ button { padding: 15px 30px; font-size: 20px; margin-top: 30px; cursor: pointer;
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-let player, currentVideoId = null;
+let player,currentVideoId=null;
 
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player("player", {
-    height: "390", width: "640", videoId: "",
-    playerVars: { autoplay: 0 },
-    events: { onReady: ()=>{}, onStateChange: handleStateChange }
-  });
+function onYouTubeIframeAPIReady(){
+  player=new YT.Player("player",{height:"390",width:"640",videoId:"",playerVars:{autoplay:0},events:{onReady:()=>{},onStateChange:handleStateChange}});
 }
 
-function handleStateChange(event) {
-  if(event.data===YT.PlayerState.ENDED) fetch("/finish",{method:"POST"}).then(()=>playNext());
+function handleStateChange(event){ 
+  if(event.data===YT.PlayerState.ENDED) fetch("/finish",{method:"POST"}).then(()=>playNext()); 
 }
 
 function playNext(){
   fetch("/next").then(res=>res.json()).then(data=>{
-    if(!data.url){ document.getElementById("current").innerText="目前無歌曲"; document.getElementById("channel").innerText=""; updateQueueDisplay([]); return; }
+    if(!data.url){ 
+      document.getElementById("current").innerText="目前無歌曲"; 
+      document.getElementById("channel").innerText=""; 
+      updateQueueDisplay([]); 
+      return; 
+    }
     currentVideoId=extractVideoId(data.url);
     fetchVideoInfo(currentVideoId).then(info=>{
       document.getElementById("current").innerText=info.title;
       document.getElementById("channel").innerText=info.channel;
     });
-    player.loadVideoById({videoId:currentVideoId,suggestedQuality:"large"});
+    player.loadVideoById({videoId:currentVideoId,suggestedQuality:"large"}); 
     player.playVideo();
   });
 }
@@ -62,38 +64,47 @@ function updateQueueDisplay(queue){
   const ul=document.getElementById("queueList"); ul.innerHTML="";
   queue.forEach((item,index)=>{
     const li=document.createElement("li");
+    li.className = (extractVideoId(item.url)===currentVideoId) ? "playing" : "";
     li.innerHTML=`<span>${index+1}. ${item.title}</span> <button class="del-btn" onclick="deleteSong(${index})">刪除</button>`;
     ul.appendChild(li);
   });
 }
 
-function extractVideoId(url){
-  const match=url.match(/v=([^&]+)/); if(match) return match[1];
-  const shortMatch=url.match(/youtu\.be\/([^?]+)/); return shortMatch?shortMatch[1]:null;
+function extractVideoId(url){ 
+  const match=url.match(/v=([^&]+)/); 
+  if(match) return match[1]; 
+  const shortMatch=url.match(/youtu\.be\/([^?]+)/); 
+  return shortMatch?shortMatch[1]:null; 
 }
 
-async function fetchVideoInfo(videoId){
+async function fetchVideoInfo(videoId){ 
   const apiKey="YOUR_YOUTUBE_API_KEY"; // 替換
   try{
     const res=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
     const data=await res.json();
-    if(data.items && data.items.length>0) return {title:data.items[0].snippet.title, channel:data.items[0].snippet.channelTitle};
+    if(data.items && data.items.length>0) return {title:data.items[0].snippet.title,channel:data.items[0].snippet.channelTitle};
   }catch(e){console.error(e);}
   return {title:videoId,channel:""};
 }
 
-function updateQueue(){
-  fetch("/queue").then(res=>res.json()).then(data=>updateQueueDisplay(data));
+function updateQueue(){ 
+  fetch("/queue").then(res=>res.json()).then(data=>updateQueueDisplay(data)); 
 }
 
-function deleteSong(index){ fetch(`/delete/${index}`,{method:"POST"}).then(()=>updateQueue()); }
+function deleteSong(index){ 
+  fetch(`/delete/${index}`,{method:"POST"}).then(()=>updateQueue()); 
+}
 
 document.getElementById("startBtn").addEventListener("click",()=>{
-  playNext();
+  playNext(); 
   document.getElementById("startBtn").style.display="none";
 });
 
-setInterval(()=>{ if(player && player.getPlayerState()!==YT.PlayerState.PLAYING) playNext(); updateQueue(); },10000);
+setInterval(()=>{
+  if(player && player.getPlayerState()!==YT.PlayerState.PLAYING) playNext(); 
+  updateQueue();
+},10000);
+
 </script>
 </body>
 </html>

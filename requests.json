@@ -1,0 +1,34 @@
+app.post('/request', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'No URL provided' });
+
+    // 檢查 YouTube 連結
+    const videoId = extractVideoId(url);
+    if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
+
+    // 抓影片標題
+    const title = await fetchVideoTitle(videoId);
+    if (!title) return res.status(500).json({ error: 'Failed to fetch video title' });
+
+    // 讀取舊 queue
+    let queue = [];
+    if (fs.existsSync('requests.json')) {
+      try {
+        queue = JSON.parse(fs.readFileSync('requests.json'));
+      } catch (err) {
+        console.error('Error parsing requests.json:', err);
+        queue = [];
+      }
+    }
+
+    queue.push({ url, title });
+    fs.writeFileSync('requests.json', JSON.stringify(queue, null, 2));
+
+    console.log(`Added to queue: ${title}`);
+    res.json({ ok: true, title });
+  } catch (err) {
+    console.error('Error in /request:', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});

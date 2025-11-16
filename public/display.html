@@ -1,141 +1,47 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-<meta charset="UTF-8" />
+<meta charset="utf-8">
 <title>大螢幕播放</title>
 <style>
-    body {
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        background: #000;
-        color: white;
-        font-family: Arial, sans-serif;
-    }
-
-    #playerArea {
-        flex: 3;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #111;
-    }
-
-    #info {
-        text-align: center;
-        padding: 10px;
-        font-size: 22px;
-    }
-
-    #nextArea {
-        flex: 1;
-        background: #222;
-        padding: 20px;
-        overflow-y: auto;
-        border-left: 3px solid #444;
-    }
-
-    .next-item {
-        padding: 10px;
-        border-bottom: 1px solid #555;
-    }
-
-    #qrcodeBox {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        background: white;
-        padding: 10px;
-        border-radius: 10px;
-    }
+body{margin:0;display:flex;height:100vh;background:#000;color:#fff;font-family:Arial;}
+#playerArea{flex:3;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;}
+#info{text-align:center;padding:10px;font-size:22px;}
+#nextArea{flex:1;background:#222;padding:20px;overflow-y:auto;border-left:3px solid #444;}
+.next-item{padding:10px;border-bottom:1px solid #555;}
+#qrcodeBox{position:absolute;bottom:20px;right:20px;background:white;padding:10px;border-radius:10px;}
 </style>
 </head>
 <body>
-
 <div id="playerArea">
-    <div id="player"></div>
-    <div id="info">
-        <div id="title">--</div>
-        <div id="channel">--</div>
-    </div>
+  <div id="player"></div>
+  <div id="info">
+    <div id="title">--</div>
+    <div id="channel">--</div>
+  </div>
 </div>
-
 <div id="nextArea">
-    <h2>下一首：</h2>
-    <div id="queueList"></div>
+  <h2>下一首：</h2>
+  <div id="queueList"></div>
 </div>
-
-<!-- QRCode -->
 <div id="qrcodeBox">
-    <img id="qrcode" width="150">
+  <img id="qrcode" width="150">
 </div>
-
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/request.js"></script>
-
 <script>
-// -------------------- QR Code --------------------
-const qrUrl = "https://song-request67.onrender.com";
-document.getElementById("qrcode").src =
-    "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(qrUrl);
+const qrUrl = "https://你的Render網址/"; // 替換成你的網址
+document.getElementById("qrcode").src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="+encodeURIComponent(qrUrl);
 
-// -------------------- YouTube Player --------------------
-let player;
-let isPlaying = false;
-
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player("player", {
-        height: "500",
-        width: "900",
-        videoId: "",
-        playerVars: { autoplay: 0 },
-        events: { onStateChange: onPlayerStateChange }
-    });
+let player,isPlaying=false;
+function onYouTubeIframeAPIReady(){
+  player=new YT.Player("player",{height:"500",width:"900",videoId:"",playerVars:{autoplay:0},events:{onStateChange:e=>{if(e.data===YT.PlayerState.ENDED){fetch("/finish",{method:"POST"}).then(()=>checkNext());}}}});
 }
-
-function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.ENDED) {
-        fetch("/next").then(res => res.json()).then(playVideo);
-    }
-}
-
-function playVideo(song) {
-    if (!song || !song.id) return;
-
-    player.loadVideoById(song.id);
-
-    document.getElementById("title").textContent = song.title;
-    document.getElementById("channel").textContent = song.channel;
-}
-
-// -------------------- Refresh Queue --------------------
-function refreshQueue() {
-    fetch("/queue")
-        .then(r => r.json())
-        .then(q => {
-            const list = document.getElementById("queueList");
-            list.innerHTML = "";
-
-            q.slice(1).forEach(song => {
-                const div = document.createElement("div");
-                div.className = "next-item";
-                div.innerHTML = `
-                    <b>${song.title}</b><br>
-                    <small>${song.channel}</small>
-                `;
-                list.appendChild(div);
-            });
-
-            // 第一次載入 → 播放第一首
-            if (!isPlaying && q.length > 0) {
-                isPlaying = true;
-                playVideo(q[0]);
-            }
-        });
-}
-setInterval(refreshQueue, 1500);
+function extractVideoId(url){const m=url&&url.match(/v=([^&]+)/);if(m)return m[1];const s=url&&url.match(/youtu\.be\/([^?&]+)/);return s?s[1]:null;}
+function playVideo(song){if(!song||!song.id)return;player.loadVideoById(song.id);document.getElementById("title").textContent=song.title;document.getElementById("channel").textContent=song.channel;}
+function checkNext(){fetch("/next").then(r=>r.json()).then(playVideo).catch(e=>console.error(e));refreshQueueSidebar();}
+function refreshQueueSidebar(){fetch("/queue").then(r=>r.json()).then(q=>{const box=document.getElementById("queueList");box.innerHTML="";q.slice(1).forEach(song=>{const div=document.createElement("div");div.className="next-item";div.innerHTML=`<b>${song.title}</b><br><small>${song.channel}</small>`;box.appendChild(div);});if(!isPlaying&&q.length>0){isPlaying=true;playVideo(q[0]);}});}
+setInterval(refreshQueueSidebar,1500);
 </script>
-
 </body>
 </html>

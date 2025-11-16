@@ -1,99 +1,24 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <title>大螢幕播放（YouTube 風）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body {
-    margin:0;
-    display:flex;
-    height:100vh;
-    background:#000;
-    color:#fff;
-    font-family:Arial, sans-serif;
-}
-#player-container {
-    flex:3;
-    position:relative;
-    background:#0b0b0b;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
-#skipBtn {
-    position:absolute;
-    top:18px;
-    right:18px;
-    z-index:20;
-    background:#ff4444;
-    border:none;
-    padding:10px 14px;
-    border-radius:8px;
-    color:#fff;
-    font-weight:700;
-    cursor:pointer;
-    box-shadow:0 4px 12px rgba(0,0,0,0.6);
-}
-#sidebar {
-    flex:1.05;
-    background:#111;
-    padding:18px;
-    overflow-y:auto;
-    border-left: 1px solid #222;
-}
-.header {
-    font-size:18px;
-    margin-bottom:10px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-}
-.video-card {
-    display:flex;
-    background:#141414;
-    padding:10px;
-    border-radius:10px;
-    margin-bottom:12px;
-    align-items:center;
-}
-.video-card.playing {
-    border: 2px solid #ff4444;
-    background: linear-gradient(90deg,#0f1b2b, #08121a);
-}
+/* 深黑 YouTube 主題風 */
+body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-family:Arial; }
+#player-container { flex:3; position:relative; background:#0b0b0b; display:flex; align-items:center; justify-content:center; }
+#skipBtn { position:absolute; top:18px; right:18px; z-index:20; background:#ff4444; border:none; padding:10px 14px; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.6); }
+#sidebar { flex:1.05; background:#111; padding:18px; overflow-y:auto; border-left: 1px solid #222; }
+.header { font-size:18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+.video-card { display:flex; background:#141414; padding:10px; border-radius:10px; margin-bottom:12px; align-items:center; }
+.video-card.playing { border: 2px solid #ff4444; background: linear-gradient(90deg,#0f1b2b, #08121a); }
 .thumbnail { width:120px; height:68px; object-fit:cover; border-radius:6px; margin-right:12px; }
 .info { flex:1; }
 .title { font-size:14px; font-weight:700; color:#fff; }
 .channel { font-size:12px; color:#bbb; margin-top:6px; }
 .controls { margin-left:10px; }
 .del-btn { background:#aa0000; color:#fff; border:none; padding:6px 8px; border-radius:6px; cursor:pointer; font-size:12px; }
-
-/* 美觀 QR Code */
-#qrcodeBox {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 12px;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    z-index: 50;
-}
-#qrcodeBox img {
-    border-radius: 12px;
-    width: 160px;
-    height: 160px;
-}
-#qrcodeBox span {
-    margin-top: 8px;
-    font-size: 14px;
-    color: #333;
-    font-weight: bold;
-}
 </style>
 </head>
 <body>
@@ -111,13 +36,6 @@ body {
   <div id="queueList"></div>
 </div>
 
-<!-- 美觀 QR Code -->
-<div id="qrcodeBox">
-  <img id="qrcode" alt="點歌 QR Code">
-  <span>掃碼點歌</span>
-</div>
-
-<script src="https://www.youtube.com/iframe_api"></script>
 <script>
 let player, currentVideoId = null;
 
@@ -152,20 +70,16 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-// ------------------ QR Code ------------------
-const qrUrl = "https://你的Render網址/"; // 替換成你的手機端 URL
-document.getElementById("qrcode").src =
-  "https://api.qrserver.com/v1/create-qr-code/?" +
-  "size=200x200&data=" + encodeURIComponent(qrUrl) +
-  "&color=ff4444&bgcolor=ffffff"; // 紅色主體，白色背景
-
-// ------------------ 播放與排隊 ------------------
 function checkNext() {
   fetch('/next').then(r => r.json()).then(data => {
-    if (data && data.id) {
-      currentVideoId = data.id;
-      player.loadVideoById(currentVideoId);
+    if (data && data.url) {
+      const vid = extractVideoId(data.url);
+      if (vid) {
+        currentVideoId = vid;
+        player.loadVideoById(vid);
+      }
     } else {
+      // no songs
       document.getElementById('queueList').innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
     }
     refreshQueueSidebar();
@@ -182,7 +96,7 @@ function refreshQueueSidebar() {
       div.innerHTML = `
         <img class="thumbnail" src="${it.thumbnail}" />
         <div class="info">
-          <div class="title">${idx === 0 ? '▶ ' : (idx+1)+'. '}${it.title}</div>
+          <div class="title">${idx === 0 ? '▶ ' : (idx+1) + '. '}${it.title}</div>
           <div class="channel">${it.channel || ''}</div>
         </div>
         <div class="controls">
@@ -198,20 +112,36 @@ function deleteSong(i) {
   fetch('/delete/' + i, { method: 'POST' }).then(() => refreshQueueSidebar());
 }
 
+// skip current
 function skipSong() {
   fetch('/finish', { method: 'POST' }).then(() => checkNext());
 }
 
-// 定時刷新
+// periodic
 setInterval(() => {
   refreshQueueSidebar();
+  // if player exists and paused or stopped, ensure it's playing next
   if (player && typeof player.getPlayerState === 'function') {
     const st = player.getPlayerState();
     if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
+      // attempt to ensure next is playing
+      // but avoid aggressive reload if user paused manually
+      // only reload if not playing
       checkNext();
     }
   }
 }, 3500);
 </script>
 </body>
+<div id="qrcodeBox">
+  <img id="qrcode" width="150" alt="點歌 QR Code">
+</div>
+
+<script>
+// QR Code 指向手機端點歌頁
+const qrUrl = "https://你的Render網址/";
+document.getElementById("qrcode").src =
+  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(qrUrl);
+</script>
+
 </html>

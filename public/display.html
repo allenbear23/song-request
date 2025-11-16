@@ -11,7 +11,8 @@
     #queue { margin-top: 30px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto; }
     #queue h3 { margin-bottom: 5px; }
     #queue ul { list-style: none; padding-left: 0; }
-    #queue li { font-size: 18px; margin-bottom: 3px; }
+    #queue li { font-size: 16px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .del-btn { background: red; color: white; border: none; padding: 2px 6px; cursor: pointer; }
     button { padding: 15px 30px; font-size: 20px; margin-top: 30px; cursor: pointer; }
   </style>
 </head>
@@ -35,7 +36,7 @@
 let player;
 let currentVideoId = null;
 
-// 初始化 YouTube Player
+// 初始化播放器
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
     height: "390",
@@ -43,13 +44,13 @@ function onYouTubeIframeAPIReady() {
     videoId: "",
     playerVars: { autoplay: 0 },
     events: {
-      "onReady": () => { console.log("Player ready"); },
-      "onStateChange": handleStateChange
+      onReady: () => { console.log("Player ready"); },
+      onStateChange: handleStateChange
     }
   });
 }
 
-// 播放完自動下一首
+// 播完自動下一首
 function handleStateChange(event) {
   if (event.data === YT.PlayerState.ENDED) {
     fetch("/finish", { method: "POST" })
@@ -57,7 +58,7 @@ function handleStateChange(event) {
   }
 }
 
-// 抓下一首影片
+// 播放下一首
 function playNext() {
   fetch("/next")
     .then(res => res.json())
@@ -71,7 +72,6 @@ function playNext() {
       const videoId = extractVideoId(data.url);
       currentVideoId = videoId;
 
-      // 更新影片資訊
       fetchVideoInfo(videoId).then(info => {
         document.getElementById("current").innerText = info.title;
         document.getElementById("channel").innerText = info.channel;
@@ -82,13 +82,13 @@ function playNext() {
     });
 }
 
-// 顯示排隊列表
+// 顯示 queue
 function updateQueueDisplay(queueUrls) {
   const ul = document.getElementById("queueList");
   ul.innerHTML = "";
-  queueUrls.forEach((url, index) => {
+  queueUrls.forEach((item, index) => {
     const li = document.createElement("li");
-    li.innerText = `${index + 1}. ${url}`;
+    li.innerHTML = `<span>${index+1}. ${item.url}</span> <button class="del-btn" onclick="deleteSong(${index})">刪除</button>`;
     ul.appendChild(li);
   });
 }
@@ -101,34 +101,33 @@ function extractVideoId(url) {
   return shortMatch ? shortMatch[1] : null;
 }
 
-// 取得影片標題、頻道名稱
+// 抓影片標題與頻道
 async function fetchVideoInfo(videoId) {
-  // 使用 YouTube Data API v3 (需自行取得 API key)
-  const apiKey = AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0; // <-- 請替換你的 YouTube API key
+  const apiKey = AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0; // 替換成你的 API key
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
     const data = await res.json();
     if (data.items && data.items.length > 0) {
-      return {
-        title: data.items[0].snippet.title,
-        channel: data.items[0].snippet.channelTitle
-      };
+      return { title: data.items[0].snippet.title, channel: data.items[0].snippet.channelTitle };
     }
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
   return { title: videoId, channel: "" };
 }
 
-// 更新下一首 queue
+// 更新 queue
 function updateQueue() {
   fetch("/queue")
     .then(res => res.json())
     .then(data => {
-      // 移除目前播放的影片
-      const queueUrls = data.filter(u => extractVideoId(u.url) !== currentVideoId).map(u => u.url);
+      const queueUrls = data.map(u => u.url);
       updateQueueDisplay(queueUrls);
     });
+}
+
+// 刪除歌曲
+function deleteSong(index) {
+  fetch(`/delete/${index}`, { method: "POST" })
+    .then(() => updateQueue());
 }
 
 // 首次點擊播放
@@ -137,7 +136,7 @@ document.getElementById("startBtn").addEventListener("click", () => {
   document.getElementById("startBtn").style.display = "none";
 });
 
-// 定時更新 queue 與自動播放
+// 定時更新 queue
 setInterval(() => {
   if (player && player.getPlayerState() !== YT.PlayerState.PLAYING) {
     playNext();

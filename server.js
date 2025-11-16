@@ -60,3 +60,16 @@ app.get('/queue', (req, res) => {
   }
   res.json(queue);
 });
+// 刪除指定索引的歌曲
+app.post('/delete/:index', (req, res) => {
+  let queue = [];
+  if (fs.existsSync('requests.json')) {
+    queue = JSON.parse(fs.readFileSync('requests.json'));
+  }
+  const idx = parseInt(req.params.index);
+  if (!isNaN(idx) && idx >= 0 && idx < queue.length) {
+    queue.splice(idx, 1);
+    fs.writeFileSync('requests.json', JSON.stringify(queue, null, 2));
+  }
+  res.json({ ok: true });
+});

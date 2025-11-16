@@ -11,7 +11,7 @@ body{background:#000;color:#fff;text-align:center;font-family:Arial;}
 #queue{max-width:800px;margin:30px auto;text-align:left;}
 #queue ul{list-style:none;padding-left:0;}
 #queue li{font-size:16px;margin-bottom:5px;display:flex;justify-content:space-between;}
-#queue li.playing{background:#444;color:#fff;font-weight:bold;} /* 高亮樣式 */
+#queue li.playing{background:#444;color:#fff;font-weight:bold;}
 .del-btn{background:red;color:white;border:none;padding:2px 6px;cursor:pointer;}
 button{padding:15px 30px;font-size:20px;margin-top:30px;cursor:pointer;}
 </style>
@@ -78,7 +78,7 @@ function extractVideoId(url){
 }
 
 async function fetchVideoInfo(videoId){ 
-  const apiKey="YOUR_YOUTUBE_API_KEY"; // 替換
+  const apiKey="AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0UBE_API_KEY"; // 替換
   try{
     const res=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
     const data=await res.json();

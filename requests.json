@@ -1,34 +1,31 @@
-app.post('/request', async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: 'No URL provided' });
+function isValidYouTube(url){ return url.includes("youtube.com/watch?v=")||url.includes("youtu.be/"); }
 
-    // 檢查 YouTube 連結
-    const videoId = extractVideoId(url);
-    if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
+function sendRequest(){
+  const url=document.getElementById("urlInput").value.trim();
+  const msgDiv=document.getElementById("msg");
 
-    // 抓影片標題
-    const title = await fetchVideoTitle(videoId);
-    if (!title) return res.status(500).json({ error: 'Failed to fetch video title' });
+  if(!isValidYouTube(url)){ msgDiv.innerText="❌ 請輸入有效的 YouTube 連結"; return; }
 
-    // 讀取舊 queue
-    let queue = [];
-    if (fs.existsSync('requests.json')) {
-      try {
-        queue = JSON.parse(fs.readFileSync('requests.json'));
-      } catch (err) {
-        console.error('Error parsing requests.json:', err);
-        queue = [];
+  fetch("/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})})
+    .then(res=>res.json())
+    .then(data=>{
+      if(data.ok){
+        msgDiv.innerText=`✔️ 已送出：${data.title}`;
+        document.getElementById("urlInput").value="";
+        updateQueue();
+      } else {
+        msgDiv.innerText=`❌ ${data.error}`;
       }
-    }
+    })
+    .catch(err=>{ msgDiv.innerText=`❌ 傳送失敗: ${err.message}`; });
+}
 
-    queue.push({ url, title });
-    fs.writeFileSync('requests.json', JSON.stringify(queue, null, 2));
+function updateQueue(){
+  fetch("/queue").then(res=>res.json()).then(data=>{
+    const ul=document.getElementById("queueList"); ul.innerHTML="";
+    data.forEach((item,index)=>{ ul.innerHTML+=`<li>${index+1}. ${item.title}</li>`; });
+  });
+}
 
-    console.log(`Added to queue: ${title}`);
-    res.json({ ok: true, title });
-  } catch (err) {
-    console.error('Error in /request:', err);
-    res.status(500).json({ error: 'Server error: ' + err.message });
-  }
-});
+updateQueue();
+setInterval(updateQueue,5000);

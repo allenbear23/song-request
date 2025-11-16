@@ -26,27 +26,6 @@ button:hover { background:#0056d2; }
 <ul id="queueList"></ul>
 </div>
 
-<script>
-function isValidYouTube(url){ return url.includes("youtube.com/watch?v=")||url.includes("youtu.be/"); }
-
-function sendRequest(){
-  const url=document.getElementById("urlInput").value.trim();
-  if(!isValidYouTube(url)){ document.getElementById("msg").innerText="❌ 請輸入有效的 YouTube 連結"; return; }
-  fetch("/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})})
-    .then(res=>res.json())
-    .then(()=>{ document.getElementById("msg").innerText="✔️ 已送出點歌"; document.getElementById("urlInput").value=""; updateQueue(); })
-    .catch(()=>{ document.getElementById("msg").innerText="❌ 傳送失敗"; });
-}
-
-function updateQueue(){
-  fetch("/queue").then(res=>res.json()).then(data=>{
-    const ul=document.getElementById("queueList"); ul.innerHTML="";
-    data.forEach((item,index)=>{ ul.innerHTML+=`<li>${index+1}. ${item.title}</li>`; });
-  });
-}
-
-updateQueue();
-setInterval(updateQueue,5000);
-</script>
+<script src="request.js"></script>
 </body>
 </html>

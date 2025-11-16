@@ -52,3 +52,11 @@ app.post('/finish', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+// 取得完整 queue（大螢幕顯示下一首排隊）
+app.get('/queue', (req, res) => {
+  let queue = [];
+  if (fs.existsSync('requests.json')) {
+    queue = JSON.parse(fs.readFileSync('requests.json'));
+  }
+  res.json(queue);
+});

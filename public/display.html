@@ -2,69 +2,149 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Song Display</title>
+  <title>大螢幕點歌播放</title>
   <style>
-    body { background: #000; color: #fff; text-align: center; }
-    iframe { width: 80vw; height: 45vw; max-height: 80vh; }
-    #current { font-size: 24px; margin-top: 20px; }
+    body { background: #000; color: #fff; text-align: center; font-family: Arial; }
+    #player { width: 80vw; height: 45vw; max-height: 80vh; margin: 0 auto; }
+    #current { font-size: 28px; margin-top: 15px; }
+    #channel { font-size: 20px; margin-top: 5px; color: #ccc; }
+    #queue { margin-top: 30px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto; }
+    #queue h3 { margin-bottom: 5px; }
+    #queue ul { list-style: none; padding-left: 0; }
+    #queue li { font-size: 18px; margin-bottom: 3px; }
+    button { padding: 15px 30px; font-size: 20px; margin-top: 30px; cursor: pointer; }
   </style>
 </head>
 <body>
 
 <h1>🎵 目前播放中</h1>
-<div id="current">等待下一首...</div>
-
 <div id="player"></div>
+<div id="current">等待播放...</div>
+<div id="channel"></div>
+
+<div id="queue">
+  <h3>下一首排隊：</h3>
+  <ul id="queueList"></ul>
+</div>
+
+<button id="startBtn">點擊播放</button>
 
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
-// 初始化播放器
 let player;
+let currentVideoId = null;
+
+// 初始化 YouTube Player
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
     height: "390",
     width: "640",
     videoId: "",
+    playerVars: { autoplay: 0 },
     events: {
-      "onReady": tryPlayNext,
+      "onReady": () => { console.log("Player ready"); },
       "onStateChange": handleStateChange
     }
   });
 }
 
-// 播完自動下一首
+// 播放完自動下一首
 function handleStateChange(event) {
   if (event.data === YT.PlayerState.ENDED) {
-    fetch("/finish", { method: "POST" })   // 通知後端移除
-      .then(() => tryPlayNext());
+    fetch("/finish", { method: "POST" })
+      .then(() => playNext());
   }
 }
 
-// 去後端抓下一首
-function tryPlayNext() {
+// 抓下一首影片
+function playNext() {
   fetch("/next")
     .then(res => res.json())
     .then(data => {
       if (!data.url) {
         document.getElementById("current").innerText = "目前無歌曲";
+        document.getElementById("channel").innerText = "";
+        updateQueueDisplay([]);
         return;
       }
-
       const videoId = extractVideoId(data.url);
-      document.getElementById("current").innerText = data.url;
-      player.loadVideoById(videoId);
+      currentVideoId = videoId;
+
+      // 更新影片資訊
+      fetchVideoInfo(videoId).then(info => {
+        document.getElementById("current").innerText = info.title;
+        document.getElementById("channel").innerText = info.channel;
+      });
+
+      player.loadVideoById({ videoId: videoId, suggestedQuality: "large" });
+      player.playVideo();
     });
 }
 
-// 從 YouTube 連結抓 videoID
-function extractVideoId(url) {
-  const match = url.match(/v=([^&]+)/);
-  return match ? match[1] : null;
+// 顯示排隊列表
+function updateQueueDisplay(queueUrls) {
+  const ul = document.getElementById("queueList");
+  ul.innerHTML = "";
+  queueUrls.forEach((url, index) => {
+    const li = document.createElement("li");
+    li.innerText = `${index + 1}. ${url}`;
+    ul.appendChild(li);
+  });
 }
 
-// 每 10 秒檢查是否有新歌（避免卡住）
-setInterval(tryPlayNext, 10000);
+// 從 URL 抓 videoId
+function extractVideoId(url) {
+  const match = url.match(/v=([^&]+)/);
+  if (match) return match[1];
+  const shortMatch = url.match(/youtu\.be\/([^?]+)/);
+  return shortMatch ? shortMatch[1] : null;
+}
+
+// 取得影片標題、頻道名稱
+async function fetchVideoInfo(videoId) {
+  // 使用 YouTube Data API v3 (需自行取得 API key)
+  const apiKey = AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0; // <-- 請替換你的 YouTube API key
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+      return {
+        title: data.items[0].snippet.title,
+        channel: data.items[0].snippet.channelTitle
+      };
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return { title: videoId, channel: "" };
+}
+
+// 更新下一首 queue
+function updateQueue() {
+  fetch("/queue")
+    .then(res => res.json())
+    .then(data => {
+      // 移除目前播放的影片
+      const queueUrls = data.filter(u => extractVideoId(u.url) !== currentVideoId).map(u => u.url);
+      updateQueueDisplay(queueUrls);
+    });
+}
+
+// 首次點擊播放
+document.getElementById("startBtn").addEventListener("click", () => {
+  playNext();
+  document.getElementById("startBtn").style.display = "none";
+});
+
+// 定時更新 queue 與自動播放
+setInterval(() => {
+  if (player && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+    playNext();
+  }
+  updateQueue();
+}, 10000);
+
 </script>
 
 </body>

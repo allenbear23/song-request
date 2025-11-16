@@ -2,109 +2,135 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>大螢幕點歌播放</title>
+<title>大螢幕播放（YouTube 風）</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{background:#000;color:#fff;text-align:center;font-family:Arial;}
-#player{width:80vw;height:45vw;max-height:80vh;margin:0 auto;}
-#current{font-size:28px;margin-top:15px;}
-#channel{font-size:20px;color:#ccc;margin-bottom:20px;}
-#queue{max-width:800px;margin:30px auto;text-align:left;}
-#queue ul{list-style:none;padding-left:0;}
-#queue li{font-size:16px;margin-bottom:5px;display:flex;justify-content:space-between;}
-#queue li.playing{background:#444;color:#fff;font-weight:bold;}
-.del-btn{background:red;color:white;border:none;padding:2px 6px;cursor:pointer;}
-button{padding:15px 30px;font-size:20px;margin-top:30px;cursor:pointer;}
+/* 深黑 YouTube 主題風 */
+body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-family:Arial; }
+#player-container { flex:3; position:relative; background:#0b0b0b; display:flex; align-items:center; justify-content:center; }
+#skipBtn { position:absolute; top:18px; right:18px; z-index:20; background:#ff4444; border:none; padding:10px 14px; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.6); }
+#sidebar { flex:1.05; background:#111; padding:18px; overflow-y:auto; border-left: 1px solid #222; }
+.header { font-size:18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+.video-card { display:flex; background:#141414; padding:10px; border-radius:10px; margin-bottom:12px; align-items:center; }
+.video-card.playing { border: 2px solid #ff4444; background: linear-gradient(90deg,#0f1b2b, #08121a); }
+.thumbnail { width:120px; height:68px; object-fit:cover; border-radius:6px; margin-right:12px; }
+.info { flex:1; }
+.title { font-size:14px; font-weight:700; color:#fff; }
+.channel { font-size:12px; color:#bbb; margin-top:6px; }
+.controls { margin-left:10px; }
+.del-btn { background:#aa0000; color:#fff; border:none; padding:6px 8px; border-radius:6px; cursor:pointer; font-size:12px; }
 </style>
 </head>
 <body>
 
-<h1>🎵 目前播放中</h1>
-<div id="player"></div>
-<div id="current">等待播放...</div>
-<div id="channel"></div>
-
-<div id="queue">
-<h3>下一首排隊：</h3>
-<ul id="queueList"></ul>
+<div id="player-container">
+  <button id="skipBtn" onclick="skipSong()">⏭ 跳過目前這首</button>
+  <div id="player"></div>
 </div>
 
-<button id="startBtn">點擊播放</button>
+<div id="sidebar">
+  <div class="header">
+    <div>🎵 排隊歌單</div>
+    <div style="font-size:12px;color:#aaa">自動更新</div>
+  </div>
+  <div id="queueList"></div>
+</div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
 <script>
-let player,currentVideoId=null;
+let player, currentVideoId = null;
 
-function onYouTubeIframeAPIReady(){
-  player=new YT.Player("player",{height:"390",width:"640",videoId:"",playerVars:{autoplay:0},events:{onReady:()=>{},onStateChange:handleStateChange}});
+function extractVideoId(url) {
+  const m = url && url.match(/v=([^&]+)/);
+  if (m) return m[1];
+  const s = url && url.match(/youtu\.be\/([^?&]+)/);
+  return s ? s[1] : null;
 }
 
-function handleStateChange(event){ 
-  if(event.data===YT.PlayerState.ENDED) fetch("/finish",{method:"POST"}).then(()=>playNext()); 
-}
+// Load YouTube iframe api
+(function(){
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.body.appendChild(tag);
+})();
 
-function playNext(){
-  fetch("/next").then(res=>res.json()).then(data=>{
-    if(!data.url){ 
-      document.getElementById("current").innerText="目前無歌曲"; 
-      document.getElementById("channel").innerText=""; 
-      updateQueueDisplay([]); 
-      return; 
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('player', {
+    height: '100%',
+    width: '100%',
+    videoId: '',
+    playerVars: { autoplay: 1, controls: 1, rel:0 },
+    events: {
+      onReady: () => checkNext(),
+      onStateChange: (e) => {
+        if (e.data === YT.PlayerState.ENDED) {
+          fetch('/finish', { method: 'POST' }).then(() => checkNext());
+        }
+      }
     }
-    currentVideoId=extractVideoId(data.url);
-    fetchVideoInfo(currentVideoId).then(info=>{
-      document.getElementById("current").innerText=info.title;
-      document.getElementById("channel").innerText=info.channel;
+  });
+}
+
+function checkNext() {
+  fetch('/next').then(r => r.json()).then(data => {
+    if (data && data.url) {
+      const vid = extractVideoId(data.url);
+      if (vid) {
+        currentVideoId = vid;
+        player.loadVideoById(vid);
+      }
+    } else {
+      // no songs
+      document.getElementById('queueList').innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
+    }
+    refreshQueueSidebar();
+  }).catch(err => console.error('checkNext err', err));
+}
+
+function refreshQueueSidebar() {
+  fetch('/queue').then(r => r.json()).then(queue => {
+    const box = document.getElementById('queueList');
+    box.innerHTML = '';
+    queue.forEach((it, idx) => {
+      const div = document.createElement('div');
+      div.className = 'video-card' + (idx === 0 ? ' playing' : '');
+      div.innerHTML = `
+        <img class="thumbnail" src="${it.thumbnail}" />
+        <div class="info">
+          <div class="title">${idx === 0 ? '▶ ' : (idx+1) + '. '}${it.title}</div>
+          <div class="channel">${it.channel || ''}</div>
+        </div>
+        <div class="controls">
+          ${idx !== 0 ? `<button class="del-btn" onclick="deleteSong(${idx})">刪除</button>` : ''}
+        </div>
+      `;
+      box.appendChild(div);
     });
-    player.loadVideoById({videoId:currentVideoId,suggestedQuality:"large"}); 
-    player.playVideo();
-  });
+  }).catch(err => console.error('refreshQueue err', err));
 }
 
-function updateQueueDisplay(queue){
-  const ul=document.getElementById("queueList"); ul.innerHTML="";
-  queue.forEach((item,index)=>{
-    const li=document.createElement("li");
-    li.className = (extractVideoId(item.url)===currentVideoId) ? "playing" : "";
-    li.innerHTML=`<span>${index+1}. ${item.title}</span> <button class="del-btn" onclick="deleteSong(${index})">刪除</button>`;
-    ul.appendChild(li);
-  });
+function deleteSong(i) {
+  fetch('/delete/' + i, { method: 'POST' }).then(() => refreshQueueSidebar());
 }
 
-function extractVideoId(url){ 
-  const match=url.match(/v=([^&]+)/); 
-  if(match) return match[1]; 
-  const shortMatch=url.match(/youtu\.be\/([^?]+)/); 
-  return shortMatch?shortMatch[1]:null; 
+// skip current
+function skipSong() {
+  fetch('/finish', { method: 'POST' }).then(() => checkNext());
 }
 
-async function fetchVideoInfo(videoId){ 
-  const apiKey="AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0UBE_API_KEY"; // 替換
-  try{
-    const res=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`);
-    const data=await res.json();
-    if(data.items && data.items.length>0) return {title:data.items[0].snippet.title,channel:data.items[0].snippet.channelTitle};
-  }catch(e){console.error(e);}
-  return {title:videoId,channel:""};
-}
-
-function updateQueue(){ 
-  fetch("/queue").then(res=>res.json()).then(data=>updateQueueDisplay(data)); 
-}
-
-function deleteSong(index){ 
-  fetch(`/delete/${index}`,{method:"POST"}).then(()=>updateQueue()); 
-}
-
-document.getElementById("startBtn").addEventListener("click",()=>{
-  playNext(); 
-  document.getElementById("startBtn").style.display="none";
-});
-
-setInterval(()=>{
-  if(player && player.getPlayerState()!==YT.PlayerState.PLAYING) playNext(); 
-  updateQueue();
-},10000);
-
+// periodic
+setInterval(() => {
+  refreshQueueSidebar();
+  // if player exists and paused or stopped, ensure it's playing next
+  if (player && typeof player.getPlayerState === 'function') {
+    const st = player.getPlayerState();
+    if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
+      // attempt to ensure next is playing
+      // but avoid aggressive reload if user paused manually
+      // only reload if not playing
+      checkNext();
+    }
+  }
+}, 3500);
 </script>
 </body>
 </html>

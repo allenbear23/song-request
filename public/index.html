@@ -2,28 +2,47 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>點歌系統</title>
+<title>點歌系統（行動）</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; background:#f8f8f8; }
-input, button { width: 100%; padding: 12px; font-size: 18px; margin-top: 10px; }
-button { background:#007bff; color:white; border:none; cursor:pointer; }
-button:hover { background:#0056d2; }
-#msg { margin-top: 20px; font-size: 18px; color:green; text-align:center; }
-#queue { margin-top: 20px; }
-#queue ul { list-style:none; padding-left:0; }
-#queue li { font-size:16px; margin-bottom:3px; }
+body { font-family: Arial; max-width: 720px; margin: 18px auto; padding: 14px; background: #0b0b0b; color: #f5f5f5; }
+.container { background: #0f0f0f; padding: 14px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+h1 { margin: 6px 0 12px; font-size: 20px; color: #fff; }
+input, button { width: 100%; padding: 12px; font-size: 16px; margin-top: 8px; border-radius:6px; border: none; }
+input { background: #111; color: #fff; }
+button { background: #ff4444; color: #fff; font-weight: bold; }
+.small { font-size: 13px; color: #bbb; margin-top: 8px; }
+.search-result { display:flex; background:#121212; padding:10px; margin-top:8px; border-radius:8px; cursor:pointer; }
+.search-result img { width:120px; height:70px; object-fit:cover; margin-right:10px; border-radius:6px; }
+.title { font-weight:700; color:#fff; }
+.channel { color:#aaa; font-size:13px; margin-top:6px; }
+#msg { margin-top:10px; color:#7fffd4; font-weight:600; }
+#queueList li { margin-top:8px; color:#fff; font-size:14px; }
+hr { border:0; height:1px; background:#222; margin:12px 0; }
 </style>
 </head>
 <body>
+<div class="container">
+  <h1>🎤 點歌系統（行動端）</h1>
 
-<h1>🎵 點歌系統</h1>
-<input id="urlInput" type="text" placeholder="貼上 YouTube 連結">
-<button onclick="sendRequest()">送出點歌</button>
-<div id="msg"></div>
+  <!-- 搜尋 -->
+  <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…">
+  <button onclick="searchYT()">搜尋</button>
+  <div id="searchList"></div>
 
-<div id="queue">
-<h3>目前排隊：</h3>
-<ul id="queueList"></ul>
+  <hr>
+
+  <!-- 貼連結 -->
+  <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）">
+  <button onclick="sendRequestFromInput()">貼上加入佇列</button>
+  <div id="msg"></div>
+
+  <hr>
+
+  <div>
+    <div class="small">目前排隊：</div>
+    <ul id="queueList"></ul>
+  </div>
 </div>
 
 <script src="request.js"></script>

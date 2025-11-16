@@ -37,3 +37,31 @@ app.post('/api/request', (req, res) => {
 app.listen(3000, () => {
   console.log("點歌系統已啟動：http://localhost:3000");
 });
+const fs = require('fs');
+
+// 讀取 queue
+function getQueue() {
+  if (!fs.existsSync('requests.json')) return [];
+  return JSON.parse(fs.readFileSync('requests.json'));
+}
+
+// 寫入 queue
+function saveQueue(q) {
+  fs.writeFileSync('requests.json', JSON.stringify(q, null, 2));
+}
+
+// 取得下一首
+app.get('/next', (req, res) => {
+  const queue = getQueue();
+  if (queue.length === 0) return res.json({ url: null });
+
+  res.json({ url: queue[0].url });
+});
+
+// 播放完畢後移除
+app.post('/finish', (req, res) => {
+  let queue = getQueue();
+  queue.shift();  // 移除第一首
+  saveQueue(queue);
+  res.json({ ok: true });
+});

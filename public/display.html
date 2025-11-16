@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Song Display</title>
+  <style>
+    body { background: #000; color: #fff; text-align: center; }
+    iframe { width: 80vw; height: 45vw; max-height: 80vh; }
+    #current { font-size: 24px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<h1>🎵 目前播放中</h1>
+<div id="current">等待下一首...</div>
+
+<div id="player"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+// 初始化播放器
+let player;
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player("player", {
+    height: "390",
+    width: "640",
+    videoId: "",
+    events: {
+      "onReady": tryPlayNext,
+      "onStateChange": handleStateChange
+    }
+  });
+}
+
+// 播完自動下一首
+function handleStateChange(event) {
+  if (event.data === YT.PlayerState.ENDED) {
+    fetch("/finish", { method: "POST" })   // 通知後端移除
+      .then(() => tryPlayNext());
+  }
+}
+
+// 去後端抓下一首
+function tryPlayNext() {
+  fetch("/next")
+    .then(res => res.json())
+    .then(data => {
+      if (!data.url) {
+        document.getElementById("current").innerText = "目前無歌曲";
+        return;
+      }
+
+      const videoId = extractVideoId(data.url);
+      document.getElementById("current").innerText = data.url;
+      player.loadVideoById(videoId);
+    });
+}
+
+// 從 YouTube 連結抓 videoID
+function extractVideoId(url) {
+  const match = url.match(/v=([^&]+)/);
+  return match ? match[1] : null;
+}
+
+// 每 10 秒檢查是否有新歌（避免卡住）
+setInterval(tryPlayNext, 10000);
+</script>
+
+</body>
+</html>

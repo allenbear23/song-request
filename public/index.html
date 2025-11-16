@@ -1,42 +1,78 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <title>點歌系統</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: Arial;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f8f8f8;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056d2;
+    }
+    .msg {
+      margin-top: 20px;
+      font-size: 20px;
+      color: green;
+      text-align: center;
+    }
+  </style>
 </head>
+
 <body>
-  <h1>🎵 點歌系統</h1>
 
-  <form id="songForm">
-    <input id="title" placeholder="歌名" required>
-    <input id="artist" placeholder="歌手 (選填)">
-    <input id="name" placeholder="你的名字 (選填)">
-    <button type="submit">送出點歌</button>
-  </form>
+<h1>🎵 點歌系統</h1>
+<p>請貼上 YouTube 連結：</p>
 
-  <p id="msg"></p>
+<input id="urlInput" type="text" placeholder="例如：https://www.youtube.com/watch?v=xxxxxx">
+<button onclick="sendRequest()">送出點歌</button>
 
-  <script>
-    document.getElementById("songForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+<div class="msg" id="msg"></div>
 
-      const title = document.getElementById("title").value;
-      const artist = document.getElementById("artist").value;
-      const name = document.getElementById("name").value;
+<script>
+function isValidYouTube(url) {
+  return url.includes("youtube.com/watch?v=") || url.includes("youtu.be/");
+}
 
-      const res = await fetch("/api/request", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ title, artist, name })
-      });
+function sendRequest() {
+  const url = document.getElementById("urlInput").value.trim();
 
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById("msg").textContent = "已送出！";
-        e.target.reset();
-      }
-    });
-  </script>
+  if (!isValidYouTube(url)) {
+    document.getElementById("msg").innerText = "❌ 請輸入有效的 YouTube 連結！";
+    return;
+  }
+
+  fetch("/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url })
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("msg").innerText = "✔️ 歌曲已送出！";
+    document.getElementById("urlInput").value = "";
+  })
+  .catch(() => {
+    document.getElementById("msg").innerText = "❌ 傳送失敗，請稍後再試";
+  });
+}
+</script>
+
 </body>
 </html>

@@ -87,36 +87,48 @@ app.get('/search', async (req, res) => {
 });
 
 // Request (add to queue) — accepts either full URL or videoId via url param
+// Request (add to queue) — accepts either full URL or videoId via url param
 app.post('/request', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-    // Support either full url or videoId
+    // 解析 videoId
     let videoId = extractVideoId(url);
     if (!videoId) {
-      // maybe user sent only videoId
       const maybeId = url.trim();
       if (/^[a-zA-Z0-9_-]{8,}$/.test(maybeId)) videoId = maybeId;
     }
     if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL or ID' });
 
+    const queue = readQueue();
+
+    // ⭐ 核心：檢查重複
+    const already = queue.some(item => extractVideoId(item.url) === videoId);
+    if (already) {
+      return res.status(400).json({
+        error: '此歌曲已在排隊中，請選擇其他歌曲'
+      });
+    }
+
+    // 取得影片資訊
     const info = await fetchVideoInfo(videoId);
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info. Check API key or video id.' });
 
-    const queue = readQueue();
-    // push object with fields: url (full), title, channel, thumbnail
+    // 將影片加入 queue
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
     queue.push({ url: fullUrl, title: info.title, channel: info.channel, thumbnail: info.thumbnail });
     writeQueue(queue);
 
     console.log('Added to queue:', info.title);
     res.json({ ok: true, title: info.title });
+
   } catch (e) {
     console.error('/request error:', e);
     res.status(500).json({ error: 'Server error: ' + e.message });
   }
 });
+
 
 // Get next (first) item
 app.get('/next', (req, res) => {

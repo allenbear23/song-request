@@ -1,57 +1,159 @@
-// Request (add to queue) — accepts either full URL or videoId via url param
-app.post('/request', async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: 'No URL provided' });
+// request.js
 
-    // Support full URL or videoId
-    let videoId = extractVideoId(url);
-    if (!videoId) {
-      // maybe user sent only videoId
-      const maybeId = url.trim();
-      if (/^[a-zA-Z0-9_-]{8,}$/.test(maybeId)) videoId = maybeId;
-    }
-    if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL or ID' });
+// --- Toast 彈出視窗 ---
+function showToast(title, msg) {
+  // 如果已存在 toast，先移除
+  const old = document.getElementById("toastBox");
+  if (old) old.remove();
 
-    const fullUrl = "https://www.youtube.com/watch?v=" + videoId;
+  const box = document.createElement("div");
+  box.id = "toastBox";
+  box.style.position = "fixed";
+  box.style.top = "50%";
+  box.style.left = "50%";
+  box.style.transform = "translate(-50%, -50%) scale(0.7)";
+  box.style.background = "rgba(0,0,0,0.85)";
+  box.style.padding = "22px 28px";
+  box.style.borderRadius = "12px";
+  box.style.color = "#fff";
+  box.style.textAlign = "center";
+  box.style.fontFamily = "Arial";
+  box.style.boxShadow = "0 4px 20px rgba(0,0,0,0.45)";
+  box.style.opacity = "0";
+  box.style.transition = "0.25s";
+  box.style.zIndex = "9999";
 
-    // ① 讀取 queue
-    const queue = readQueue();
+  box.innerHTML = `
+    <div style="font-size:20px; font-weight:700; margin-bottom:6px;">✨ ${title}</div>
+    <div style="font-size:15px; color:#ddd;">${msg}</div>
+  `;
 
-    // ② 檢查是否重複（比對 videoId 或 url）
-    const already = queue.some(item => {
-      const id = extractVideoId(item.url);
-      return id === videoId;
-    });
+  document.body.appendChild(box);
 
-    if (already) {
-      return res.status(400).json({
-        error: '此歌曲已在排隊中，請選擇其他歌曲'
-      });
-    }
+  // 動畫出現
+  setTimeout(() => {
+    box.style.opacity = "1";
+    box.style.transform = "translate(-50%, -50%) scale(1)";
+  }, 10);
 
-    // ③ 抓取影片資訊
-    const info = await fetchVideoInfo(videoId);
-    if (!info) {
-      return res.status(500).json({ error: 'Failed to fetch video info. Check API key.' });
-    }
+  // 3 秒後消失
+  setTimeout(() => {
+    box.style.opacity = "0";
+    box.style.transform = "translate(-50%, -50%) scale(0.7)";
+    setTimeout(() => box.remove(), 250);
+  }, 3000);
+}
 
-    // ④ 寫入 queue
-    queue.push({
-      url: fullUrl,
-      title: info.title,
-      channel: info.channel,
-      thumbnail: info.thumbnail
-    });
+// --- 搜尋功能 ---
+function searchYT() {
+  const q = document.getElementById('searchInput').value.trim();
+  const box = document.getElementById('searchList');
 
-    writeQueue(queue);
-
-    console.log('Added:', info.title);
-
-    res.json({ ok: true, title: info.title });
-
-  } catch (e) {
-    console.error('/request error:', e);
-    res.status(500).json({ error: 'Server error: ' + e.message });
+  if (!q) {
+    box.innerHTML = '';
+    return;
   }
-});
+
+  box.innerHTML = '🔍 搜尋中…';
+
+  fetch('/search?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(list => {
+      box.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        box.innerHTML = '<div class="small">找不到相關影片</div>';
+        return;
+      }
+
+      list.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'search-result';
+        div.onclick = () => sendRequestByVideoId(it.videoId);
+
+        div.innerHTML = `
+          <img src="${it.thumbnail}" alt="">
+          <div>
+            <div class="title">${it.title}</div>
+            <div class="channel">${it.channel}</div>
+          </div>
+        `;
+        box.appendChild(div);
+      });
+    })
+    .catch(err => {
+      console.error('search error', err);
+      box.innerHTML = '<div class="small">搜尋錯誤，請稍後再試</div>';
+    });
+}
+
+function sendRequestByVideoId(videoId) {
+  const url = 'https://www.youtube.com/watch?v=' + videoId;
+  sendRequest(url);
+}
+
+function sendRequestFromInput() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) {
+    showToast("錯誤", "請輸入連結或使用搜尋");
+    return;
+  }
+  sendRequest(url);
+}
+
+// --- 點歌 API ---
+function sendRequest(url) {
+  showToast("傳送中…", "請稍候");
+
+  fetch('/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  })
+    .then(r => r.json())
+    .then(data => {
+  if (data.ok) {
+    showToast("點歌成功", data.title + " 已加入隊列");
+    document.getElementById('urlInput').value = '';
+    updateQueue();
+  } else if (data.error && data.error.includes("排隊中")) {
+    // 針對重複點歌專用訊息
+    showToast("重複點歌", data.error);
+  } else {
+    showToast("錯誤", data.error || '加入失敗');
+  }
+})
+    .catch(err => {
+      console.error('request error', err);
+      showToast("錯誤", "傳送失敗：" + err.message);
+    });
+}
+
+// --- Queue 列表更新 ---
+function updateQueue() {
+  fetch('/queue')
+    .then(r => r.json())
+    .then(list => {
+      const ul = document.getElementById('queueList');
+      ul.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        ul.innerHTML = '<li style="color:#999">目前沒有排隊歌曲</li>';
+        return;
+      }
+
+      list.forEach((it, idx) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${idx + 1}. ${it.title}
+          <span style="color:#888; font-size:12px"> - ${it.channel || ''}</span>
+        `;
+        ul.appendChild(li);
+      });
+    })
+    .catch(err => console.error('updateQueue error', err));
+}
+
+// 初始化
+updateQueue();
+setInterval(updateQueue, 5000);

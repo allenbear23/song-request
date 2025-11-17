@@ -5,6 +5,37 @@
 <title>放歌啦</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
+/* QR Code 浮動卡片 */
+#qrcodeBox {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
+#qrcodeCard {
+  background: rgba(0,0,0,0.6);   /* 半透明黑色底 */
+  padding: 12px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 滑鼠經過放大 */
+#qrcodeCard:hover {
+  transform: scale(1.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+}
+
+#qrcodeCard img {
+  border-radius: 12px;
+  width: 150px;
+  height: 150px;
+}
+
 /* 深黑 YouTube 主題風 */
 body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-family:Arial; }
 #player-container { flex:3; position:relative; background:#0b0b0b; display:flex; align-items:center; justify-content:center; }
@@ -134,8 +165,12 @@ setInterval(() => {
 </script>
 </body>
 <div id="qrcodeBox">
-  <img id="qrcode" width="150" alt="點歌 QR Code">
+  <div id="qrcodeCard">
+    <img id="qrcode" width="150" alt="點歌 QR Code">
+    <div style="text-align:center; font-size:12px; color:#fff; margin-top:4px;">掃描點歌</div>
+  </div>
 </div>
+
 
 <script>
 // QR Code 指向手機端點歌頁

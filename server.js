@@ -242,13 +242,16 @@ app.post('/playlist/clear', (req, res) => {
     res.status(500).json({ error: "clear playlist error" });
   }
 });
-app.get("/display.html", protect, (req, res) => {
-  res.sendFile(__dirname + "/display.html");
+app.use((req, res, next) => {
+  const protectPages = ["/display.html", "/admin.html"];
+  if (protectPages.includes(req.path)) {
+    return protect(req, res, next);
+  }
+  next();
 });
 
-app.get("/admin.html", protect, (req, res) => {
-  res.sendFile(__dirname + "/admin.html");
-});
+app.use(express.static(__dirname));
+
 
 // health
 app.get('/health', (req, res) => res.json({ ok: true }));

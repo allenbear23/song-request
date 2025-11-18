@@ -1,4 +1,7 @@
 // server.js
+const ADMIN_USER = "allen";      // 你的帳號
+const ADMIN_PASS = "123456";     // 你的密碼
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +16,24 @@ const YT_API_KEY = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0";
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+function protect(req, res, next) {
+  const auth = req.headers.authorization;
+
+  if (!auth || !auth.startsWith("Basic ")) {
+    res.set("WWW-Authenticate", 'Basic realm="Protected Area"');
+    return res.status(401).send("Authentication required.");
+  }
+
+  const base64 = auth.split(" ")[1];
+  const [user, pass] = Buffer.from(base64, "base64").toString().split(":");
+
+  if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    return next();
+  }
+
+  res.set("WWW-Authenticate", 'Basic realm="Protected Area"');
+  return res.status(401).send("Invalid credentials.");
+}
 
 // helper: ensure requests.json exists (returns array)
 function readQueue() {
@@ -220,6 +241,13 @@ app.post('/playlist/clear', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "clear playlist error" });
   }
+});
+app.get("/display.html", protect, (req, res) => {
+  res.sendFile(__dirname + "/display.html");
+});
+
+app.get("/admin.html", protect, (req, res) => {
+  res.sendFile(__dirname + "/admin.html");
 });
 
 // health

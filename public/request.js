@@ -107,7 +107,7 @@ function sendRequest(url) {
   const token = grecaptcha.getResponse();
 
   if (!token) {
-    showToast("驗證失敗", "請先完成驗證，我不是機器人");
+    showToast("驗證失敗", "請往下滑完成驗證，我不是機器人");
     return;
   }
 

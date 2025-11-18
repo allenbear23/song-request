@@ -128,6 +128,8 @@ function sendRequest(url) {
         showToast("點歌成功", data.title + " 已加入隊列");
         document.getElementById('urlInput').value = '';
         updateQueue();
+        document.getElementById('searchList').innerHTML = ''; // 清空搜尋結果
+
       } else if (data.error && data.error.includes("排隊中")) {
         showToast("重複點歌", data.error);
       } else {

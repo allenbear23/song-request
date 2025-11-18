@@ -183,6 +183,44 @@ app.post('/delete/:index', (req, res) => {
   }
   res.json({ ok: true });
 });
+app.get('/playlist', (req, res) => {
+  try {
+    if (!fs.existsSync('playlist.json')) return res.json([]);
+    const raw = fs.readFileSync('playlist.json', 'utf8') || '[]';
+    res.json(JSON.parse(raw));
+  } catch (err) {
+    res.status(500).json({ error: "read playlist error" });
+  }
+});
+app.post('/playlist/save', (req, res) => {
+  try {
+    const q = readQueue();
+    fs.writeFileSync('playlist.json', JSON.stringify(q, null, 2));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "save playlist error" });
+  }
+});
+app.post('/playlist/load', (req, res) => {
+  try {
+    if (!fs.existsSync('playlist.json')) return res.json({ ok: false });
+
+    const playlist = JSON.parse(fs.readFileSync('playlist.json'));
+    writeQueue(playlist);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "load playlist error" });
+  }
+});
+app.post('/playlist/clear', (req, res) => {
+  try {
+    fs.writeFileSync('playlist.json', '[]');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "clear playlist error" });
+  }
+});
 
 // health
 app.get('/health', (req, res) => res.json({ ok: true }));

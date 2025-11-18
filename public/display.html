@@ -13,7 +13,7 @@
   z-index: 100;
 }
 
-##qrcodeCard {
+#qrcodeCard {
   background: radial-gradient(circle at center, rgba(0,0,0,0.7), rgba(0,0,0,0.4));
   padding: 16px;
   border-radius: 20px;
@@ -180,7 +180,10 @@ setInterval(() => {
 // QR Code 指向手機端點歌頁
 const qrUrl = "https://song-request67.onrender.com";
 document.getElementById("qrcode").src =
-  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(qrUrl);
+  "https://api.qrserver.com/v1/create-qr-code/?" +
+  "size=200x200&data=" + encodeURIComponent(qrUrl) +
+  "&ecc=L&color=00ffcc&bgcolor=000000&margin=10";
+
 </script>
 
 </html>

@@ -103,31 +103,46 @@ function sendRequestFromInput() {
 
 // --- 點歌 API ---
 function sendRequest(url) {
+  // 取得 reCAPTCHA token（checkbox 要有勾選）
+  const token = grecaptcha.getResponse();
+
+  if (!token) {
+    showToast("驗證失敗", "請先完成驗證，我不是機器人");
+    return;
+  }
+
   showToast("傳送中…", "請稍候");
 
   fetch('/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
+    body: JSON.stringify({ url, token })
   })
     .then(r => r.json())
     .then(data => {
-  if (data.ok) {
-    showToast("點歌成功", data.title + " 已加入隊列");
-    document.getElementById('urlInput').value = '';
-    updateQueue();
-  } else if (data.error && data.error.includes("排隊中")) {
-    // 針對重複點歌專用訊息
-    showToast("重複點歌", data.error);
-  } else {
-    showToast("錯誤", data.error || '加入失敗');
-  }
-})
+
+      // 不論成功失敗，都 reset reCAPTCHA
+      grecaptcha.reset();
+
+      if (data.ok) {
+        showToast("點歌成功", data.title + " 已加入隊列");
+        document.getElementById('urlInput').value = '';
+        updateQueue();
+      } else if (data.error && data.error.includes("排隊中")) {
+        showToast("重複點歌", data.error);
+      } else {
+        showToast("錯誤", data.error || '加入失敗');
+      }
+    })
     .catch(err => {
       console.error('request error', err);
       showToast("錯誤", "傳送失敗：" + err.message);
+
+      // 失敗也 reset
+      grecaptcha.reset();
     });
 }
+
 
 // --- Queue 列表更新 ---
 function updateQueue() {

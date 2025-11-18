@@ -88,12 +88,40 @@ app.get('/search', async (req, res) => {
 
 // Request (add to queue) — accepts either full URL or videoId via url param
 // Request (add to queue) — accepts either full URL or videoId via url param
+// server.js 內：在 /request 路由中，先做 reCAPTCHA 驗證
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdVAxAsAAAAABzsj87WM7MJBBTwLyXZmDCF6zvw';
+
 app.post('/request', async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, token } = req.body;
+
+    // 驗證 token 是否送來
+    if (!token) {
+      return res.status(400).json({ error: 'reCAPTCHA token missing' });
+    }
+
+    // call Google verify API
+    const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
+    const params = new URLSearchParams();
+    params.append('secret', RECAPTCHA_SECRET);
+    params.append('response', token);
+
+    const verifyRes = await fetch(verifyUrl, { method: 'POST', body: params });
+    const verifyJson = await verifyRes.json();
+
+    // verifyJson 範例: { success: true, score: 0.9, action: "submit", ... }
+    if (!verifyJson.success) {
+      console.warn('reCAPTCHA failed', verifyJson);
+      return res.status(400).json({ error: 'reCAPTCHA 驗證失敗，請再試一次' });
+    }
+
+    // 如果你使用 reCAPTCHA v3（有 score），你可以檢查 score >= 0.5 之類：
+    // if (verifyJson.score !== undefined && verifyJson.score < 0.5) { ... }
+
+    // 驗證成功後，繼續原本的點歌流程
+    // --- 以下保留你原本的解析 videoId / 重複檢查 / 加入 queue 邏輯 ---
     if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-    // 解析 videoId
     let videoId = extractVideoId(url);
     if (!videoId) {
       const maybeId = url.trim();
@@ -102,32 +130,27 @@ app.post('/request', async (req, res) => {
     if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL or ID' });
 
     const queue = readQueue();
-
-    // ⭐ 核心：檢查重複
     const already = queue.some(item => extractVideoId(item.url) === videoId);
     if (already) {
-      return res.status(400).json({
-        error: '此歌曲已在排隊中，請選擇其他歌曲'
-      });
+      return res.status(400).json({ error: '此歌曲已在排隊中，請選擇其他歌曲' });
     }
 
-    // 取得影片資訊
     const info = await fetchVideoInfo(videoId);
-    if (!info) return res.status(500).json({ error: 'Failed to fetch video info. Check API key or video id.' });
+    if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
 
-    // 將影片加入 queue
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
     queue.push({ url: fullUrl, title: info.title, channel: info.channel, thumbnail: info.thumbnail });
     writeQueue(queue);
 
     console.log('Added to queue:', info.title);
-    res.json({ ok: true, title: info.title });
+    return res.json({ ok: true, title: info.title });
 
   } catch (e) {
     console.error('/request error:', e);
-    res.status(500).json({ error: 'Server error: ' + e.message });
+    return res.status(500).json({ error: 'Server error: ' + e.message });
   }
 });
+
 
 
 // Get next (first) item

@@ -13,6 +13,10 @@ input { padding: 8px; width: 100px; background: #333; border: 1px solid #555; co
 button { padding: 8px 16px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
 button:hover { background: #0056b3; }
 .msg { margin-top: 10px; color: #4caf50; }
+.queue-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #333; background: #1a1a1a; }
+.queue-item:first-child { background: #2a2a2a; border-left: 4px solid #4caf50; }
+.btn-sm { padding: 4px 8px; font-size: 12px; margin-left: 4px; }
+.btn-del { background: #dc3545; } .btn-del:hover { background: #c82333; }
 </style>
 </head>
 <body>
@@ -27,6 +31,15 @@ button:hover { background: #0056b3; }
     <button onclick="saveThreshold()">儲存設定</button>
   </div>
   <div id="msg" class="msg"></div>
+</div>
+
+<div class="card">
+  <h3>🎵 播放佇列管理</h3>
+  <div style="margin-bottom:10px; display:flex; gap:10px;">
+    <button onclick="refreshQueue()">🔄 重新整理</button>
+    <button onclick="skipCurrent()" style="background:#ff4444">⏭ 跳過目前歌曲</button>
+  </div>
+  <div id="adminQueueList"></div>
 </div>
 
 <div class="card">
@@ -59,6 +72,65 @@ button:hover { background: #0056b3; }
     })
     .catch(err => alert("儲存失敗"));
   }
+
+  // --- 佇列管理功能 ---
+  function refreshQueue() {
+    fetch('/queue')
+      .then(r => r.json())
+      .then(q => renderQueue(q));
+  }
+
+  function renderQueue(q) {
+    const list = document.getElementById('adminQueueList');
+    list.innerHTML = '';
+    if(q.length === 0) {
+      list.innerHTML = '<div style="color:#777; padding:10px;">目前沒有歌曲</div>';
+      return;
+    }
+    
+    q.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      
+      // 標題區
+      const info = document.createElement('div');
+      if (idx === 0) {
+        info.innerHTML = `<span style="color:#4caf50; font-weight:bold">▶ 正在播放：</span> ${item.title}`;
+      } else {
+        info.innerText = `${idx}. ${item.title}`;
+      }
+      
+      // 按鈕區
+      const actions = document.createElement('div');
+      
+      // 只有排隊中的歌曲 (index > 0) 可以移動或刪除
+      if (idx > 0) {
+        // 上移 (如果不是第一首排隊歌曲)
+        if (idx > 1) {
+          actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx-1})">⬆</button>`;
+        }
+        // 下移 (如果不是最後一首)
+        if (idx < q.length - 1) {
+          actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx+1})">⬇</button>`;
+        }
+        // 刪除
+        actions.innerHTML += `<button class="btn-sm btn-del" onclick="deleteItem(${idx})">❌</button>`;
+      }
+      
+      div.appendChild(info);
+      div.appendChild(actions);
+      list.appendChild(div);
+    });
+  }
+
+  function skipCurrent() { if(confirm('確定要跳過目前歌曲嗎？')) fetch('/finish', { method: 'POST' }).then(refreshQueue); }
+  function deleteItem(idx) { if(confirm('確定要刪除這首歌嗎？')) fetch('/delete/' + idx, { method: 'POST' }).then(refreshQueue); }
+  function moveItem(oldIndex, newIndex) {
+    fetch('/admin/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);
+  }
+
+  // 初始載入
+  refreshQueue();
 </script>
 
 </body>

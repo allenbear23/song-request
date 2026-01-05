@@ -324,6 +324,23 @@ app.post('/admin/threshold', protect, (req, res) => {
   }
 });
 
+// 更改順序 (管理員)
+app.post('/admin/reorder', protect, (req, res) => {
+  const { oldIndex, newIndex } = req.body;
+  const q = readQueue();
+  if (
+    typeof oldIndex === 'number' && oldIndex >= 0 && oldIndex < q.length &&
+    typeof newIndex === 'number' && newIndex >= 0 && newIndex < q.length
+  ) {
+    const [item] = q.splice(oldIndex, 1);
+    q.splice(newIndex, 0, item);
+    writeQueue(q);
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: "無效的索引" });
+  }
+});
+
 app.use((req, res, next) => {
   const protectPages = ["/display.html", "/admin.html"];
   if (protectPages.includes(req.path)) {

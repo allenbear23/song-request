@@ -119,6 +119,28 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   0% { opacity: 0; transform: scale(3) translateY(-50px) rotate(-15deg); filter: blur(10px); }
   100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); filter: blur(0); }
 }
+
+/* 投票成功 Overlay */
+#successOverlay {
+  display: none;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 400;
+  align-items: center; justify-content: center;
+  pointer-events: none; /* 讓點擊穿透，不影響操作 */
+}
+.success-box {
+  font-size: 60px; font-weight: bold; color: #00ff00;
+  text-align: center;
+  text-shadow: 0 0 20px rgba(0,255,0,0.8);
+  background: rgba(0,0,0,0.9);
+  padding: 30px 60px; border-radius: 20px; border: 6px solid #00ff00;
+  box-shadow: 0 0 50px rgba(0,255,0,0.5);
+  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
 </style>
 </head>
 <body>
@@ -140,6 +162,8 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
     <div>🎵 排隊歌單</div>
     <div style="font-size:12px;color:#aaa">自動更新</div>
   </div>
+  <!-- 測試音效按鈕 -->
+  <button onclick="playVoteSound()" style="width:100%; margin-bottom:10px; background:#333; border:1px solid #555; color:#fff; padding:8px; cursor:pointer; border-radius:4px;">🔊 測試音效</button>
   <div id="queueList"></div>
 </div>
 
@@ -170,8 +194,54 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   </div>
 </div>
 
+<!-- 投票成功顯示層 -->
+<div id="successOverlay">
+  <div class="success-box">✅ 投票通過<br>切歌成功！</div>
+</div>
+
 <script>
 let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false;
+
+// --- 音效引擎 (Web Audio API) ---
+let audioCtx, gainNode;
+
+function initAudio() {
+  const audio = document.getElementById('voteSound');
+  if (!audio) return;
+
+  // 1. 初始化 AudioContext (只做一次)
+  if (!audioCtx) {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      const source = audioCtx.createMediaElementSource(audio);
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 4.0; // 音量放大 4 倍
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+    } catch (e) {
+      console.error("Web Audio Init Error:", e);
+    }
+  }
+
+  // 2. 確保 Context 處於運作狀態
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playVoteSound() {
+  const audio = document.getElementById('voteSound');
+  if (!audio) return;
+  
+  initAudio(); // 確保已初始化
+  
+  audio.currentTime = 0;
+  audio.play().catch(e => {
+    console.error("播放失敗:", e);
+    // 如果 Web Audio 失敗，嘗試直接播放 (雖然可能比較小聲)
+  });
+}
 
 function extractVideoId(url) {
   const m = url && url.match(/v=([^&]+)/);
@@ -240,10 +310,8 @@ function refreshQueueSidebar() {
       if (currentVideoId && topVid && topVid !== currentVideoId) {
         // 偵測到切歌：如果之前處於投票狀態，播放成功音效
         if (isVoting) {
-          const audio = document.getElementById('voteSound');
-          if (audio) {
-            audio.play().catch(e => console.error("播放音效失敗(切歌):", e));
-          }
+          playVoteSound();
+          showSuccessAnimation();
         }
         checkNext();
       }
@@ -274,8 +342,7 @@ function refreshQueueSidebar() {
     const overlay = document.getElementById('voteOverlay');
     if (queue.length > 0 && queue[0].votes > 0) {
       if (!isVoting) {
-        const audio = document.getElementById('voteSound');
-        if (audio) audio.play().catch(e => console.error("播放音效失敗(投票開始):", e));
+        playVoteSound();
       }
       isVoting = true; // 標記目前正在投票
       overlay.style.display = 'flex';
@@ -371,8 +438,7 @@ function showSkipOverlay(msg) {
   overlay.style.display = 'flex';
   
   // 播放提示音
-  const audio = document.getElementById('voteSound');
-  if(audio) audio.play().catch(()=>{});
+  playVoteSound();
 
   // 5 秒後自動消失
   setTimeout(() => { overlay.style.display = 'none'; }, 5000);
@@ -383,30 +449,25 @@ setInterval(checkSkipMessage, 2000);
 </script>
 
 <script>
+function showSuccessAnimation() {
+  const el = document.getElementById('successOverlay');
+  el.style.display = 'flex';
+  setTimeout(() => { el.style.display = 'none'; }, 4000); // 4秒後自動消失
+}
+</script>
+
+<script>
 // 處理音效解鎖
 document.getElementById('startOverlay').addEventListener('click', function() {
+  initAudio(); // 初始化 Web Audio
+  
   const audio = document.getElementById('voteSound');
   if(audio) {
-    // 使用 Web Audio API 增強音量 (需使用本地檔案以避免 CORS 問題)
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioContext();
-      const source = ctx.createMediaElementSource(audio);
-      const gainNode = ctx.createGain();
-      
-      gainNode.gain.value = 4.0; // 設定音量為 400% (可自行調整數值)
-      
-      source.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      if (ctx.state === 'suspended') ctx.resume();
-      
-    } catch (e) {
-      console.warn("無法增強音量 (可能是跨域問題):", e);
-    }
-
-    // 嘗試播放並立即暫停，以解鎖
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(e => console.error("音效解鎖失敗", e));
+    // 嘗試播放並立即暫停，以解鎖 iOS/Chrome 的自動播放限制
+    audio.play().then(() => { 
+      audio.pause(); 
+      audio.currentTime = 0; 
+    }).catch(e => console.error("音效解鎖失敗", e));
   }
   this.style.display = 'none';
 });
@@ -431,6 +492,6 @@ document.getElementById("qrcode").src =
 </script>
 
 <!-- 投票成功音效 -->
-<audio id="voteSound" src="vote.mp3" preload="auto"></audio>
+<audio id="voteSound" src="vote.mp3" preload="auto" onerror="alert('找不到 vote.mp3 音效檔，請確認檔案是否已放入 public 資料夾')"></audio>
 </body>
 </html>

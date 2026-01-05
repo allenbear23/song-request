@@ -386,8 +386,26 @@ setInterval(checkSkipMessage, 2000);
 // 處理音效解鎖
 document.getElementById('startOverlay').addEventListener('click', function() {
   const audio = document.getElementById('voteSound');
-  // 嘗試播放並立即暫停，以解鎖 AudioContext
   if(audio) {
+    // 使用 Web Audio API 增強音量 (需使用本地檔案以避免 CORS 問題)
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      const source = ctx.createMediaElementSource(audio);
+      const gainNode = ctx.createGain();
+      
+      gainNode.gain.value = 4.0; // 設定音量為 400% (可自行調整數值)
+      
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      if (ctx.state === 'suspended') ctx.resume();
+      
+    } catch (e) {
+      console.warn("無法增強音量 (可能是跨域問題):", e);
+    }
+
+    // 嘗試播放並立即暫停，以解鎖
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(e => console.error("音效解鎖失敗", e));
   }
   this.style.display = 'none';
@@ -413,6 +431,6 @@ document.getElementById("qrcode").src =
 </script>
 
 <!-- 投票成功音效 -->
-<audio id="voteSound" src="https://www.soundjay.com/misc/sounds/magic-chime-01.mp3" preload="auto"></audio>
+<audio id="voteSound" src="vote.mp3" preload="auto"></audio>
 </body>
 </html>

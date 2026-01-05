@@ -98,6 +98,13 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   0% { transform: scale(1); border-color: #ff4444; box-shadow: 0 0 20px #ff4444; }
   100% { transform: scale(1.08); border-color: #ffff00; box-shadow: 0 0 50px #ffff00; }
 }
+
+/* 管理員切歌訊息 Overlay */
+#skipOverlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+  background:rgba(0,0,0,0.95); z-index:300; flex-direction:column; align-items:center; justify-content:center; 
+  animation:fadeIn 0.5s;
+}
 </style>
 </head>
 <body>
@@ -138,6 +145,13 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
     </div>
     <div style="margin-top:10px; font-size:14px; color:#888;">掃描 QR Code 參與投票</div>
   </div>
+</div>
+
+<!-- 管理員切歌訊息顯示層 -->
+<div id="skipOverlay">
+  <h1 style="color:#ff4444; font-size:48px; margin-bottom:20px; text-shadow: 0 0 10px #ff0000;">🛑 管理員切歌</h1>
+  <img id="skipImageDisplay" style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
+  <div id="skipReasonDisplay" style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
 </div>
 
 <script>
@@ -311,6 +325,47 @@ setInterval(() => {
 // 獨立的計時器更新迴圈 (每秒)
 setInterval(updateVoteTimerUI, 1000);
 </script>
+
+<script>
+// --- 檢查管理員切歌訊息 ---
+let lastSkipTime = 0;
+
+function checkSkipMessage() {
+  fetch('/skip-message?_=' + Date.now())
+    .then(r => r.json())
+    .then(msg => {
+      if (msg && msg.timestamp && msg.timestamp > lastSkipTime) {
+        lastSkipTime = msg.timestamp;
+        // 只有 10 秒內發生的切歌才顯示 (避免重整網頁時跳出舊訊息)
+        if (Date.now() - msg.timestamp < 10000) {
+          showSkipOverlay(msg);
+        }
+      }
+    });
+}
+
+function showSkipOverlay(msg) {
+  const overlay = document.getElementById('skipOverlay');
+  document.getElementById('skipReasonDisplay').innerText = msg.reason || '（無原因）';
+  const imgEl = document.getElementById('skipImageDisplay');
+  
+  if (msg.image) { imgEl.src = msg.image; imgEl.style.display = 'block'; }
+  else { imgEl.style.display = 'none'; }
+  
+  overlay.style.display = 'flex';
+  
+  // 播放提示音
+  const audio = document.getElementById('voteSound');
+  if(audio) audio.play().catch(()=>{});
+
+  // 5 秒後自動消失
+  setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+}
+
+// 每 2 秒檢查一次是否有新訊息
+setInterval(checkSkipMessage, 2000);
+</script>
+
 <script>
 // 處理音效解鎖
 document.getElementById('startOverlay').addEventListener('click', function() {

@@ -37,8 +37,17 @@ button:hover { background: #0056b3; }
   <h3>🎵 播放佇列管理</h3>
   <div style="margin-bottom:10px; display:flex; gap:10px;">
     <button onclick="refreshQueue()">🔄 重新整理</button>
-    <button onclick="skipCurrent()" style="background:#ff4444">⏭ 跳過目前歌曲</button>
   </div>
+  
+  <!-- 切歌控制區 -->
+  <div style="background:#2a2a2a; padding:10px; border-radius:6px; margin-bottom:10px; border:1px solid #444;">
+    <label>切歌原因 (選填)</label>
+    <input type="text" id="skipReason" style="width:100%; box-sizing:border-box; margin-bottom:8px;" placeholder="例如：版權問題、太難聽...">
+    <label>上傳圖片 (選填)</label>
+    <input type="file" id="skipImage" accept="image/*" style="width:100%; margin-bottom:8px;">
+    <button onclick="skipWithReason()" style="background:#ff4444; width:100%;">⏭ 強制切歌並顯示訊息</button>
+  </div>
+
   <div id="adminQueueList"></div>
 </div>
 
@@ -123,7 +132,44 @@ button:hover { background: #0056b3; }
     });
   }
 
-  function skipCurrent() { if(confirm('確定要跳過目前歌曲嗎？')) fetch('/finish', { method: 'POST' }).then(refreshQueue); }
+  // 帶原因與圖片的切歌
+  function skipWithReason() {
+    if(!confirm('確定要強制切歌嗎？')) return;
+    
+    const reason = document.getElementById('skipReason').value;
+    const fileInput = document.getElementById('skipImage');
+    const file = fileInput.files[0];
+    
+    const sendSkip = (base64Image) => {
+      fetch('/admin/skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, image: base64Image })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if(data.ok) {
+          alert('已切歌');
+          refreshQueue();
+          // 清空輸入
+          document.getElementById('skipReason').value = '';
+          fileInput.value = '';
+        } else {
+          alert('失敗: ' + (data.error || '未知錯誤'));
+        }
+      })
+      .catch(err => alert('錯誤'));
+    };
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) { sendSkip(e.target.result); };
+      reader.readAsDataURL(file);
+    } else {
+      sendSkip(null);
+    }
+  }
+
   function deleteItem(idx) { if(confirm('確定要刪除這首歌嗎？')) fetch('/delete/' + idx, { method: 'POST' }).then(refreshQueue); }
   function moveItem(oldIndex, newIndex) {
     fetch('/admin/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);

@@ -16,8 +16,8 @@ const YT_API_KEY = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0";
 let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
 const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 function protect(req, res, next) {
   const auth = req.headers.authorization;
@@ -37,6 +37,8 @@ function protect(req, res, next) {
   res.set("WWW-Authenticate", 'Basic realm="Protected Area"');
   return res.status(401).send("Invalid credentials.");
 }
+
+let lastSkipMessage = null; // 儲存最新的管理員切歌訊息
 
 // helper: ensure requests.json exists (returns array)
 function readQueue() {
@@ -340,6 +342,30 @@ app.post('/admin/reorder', protect, (req, res) => {
     res.status(400).json({ error: "無效的索引" });
   }
 });
+
+// 管理員強制切歌 (帶原因與圖片)
+app.post('/admin/skip', protect, (req, res) => {
+  const { reason, image } = req.body;
+  const q = readQueue();
+  
+  // 執行切歌邏輯
+  if (q.length > 0) {
+    q.shift();
+    writeQueue(q);
+  }
+
+  // 紀錄訊息供前端顯示
+  lastSkipMessage = {
+    reason: reason || '',
+    image: image || null,
+    timestamp: Date.now()
+  };
+
+  res.json({ ok: true });
+});
+
+// 取得最新的切歌訊息
+app.get('/skip-message', (req, res) => res.json(lastSkipMessage || {}));
 
 app.use((req, res, next) => {
   const protectPages = ["/display.html", "/admin.html"];

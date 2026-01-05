@@ -69,7 +69,24 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 .vote-box { text-align: center; color: #fff; }
 .vote-title { font-size: 32px; font-weight: bold; margin-bottom: 20px; color: #ff4444; }
 .vote-info { font-size: 24px; margin: 10px 0; }
-.vote-timer { font-size: 18px; color: #aaa; margin-top: 10px; }
+
+/* 圓形倒數計時器 */
+.vote-timer-circle { position: relative; width: 100px; height: 100px; margin: 10px auto; }
+.vote-timer-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.vote-timer-circle circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+.vote-timer-circle .bg { stroke: #333; }
+.vote-timer-circle .fg {
+  stroke: #ff4444;
+  stroke-dasharray: 283; /* 2 * PI * 45 */
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s linear;
+}
+.vote-timer-circle .timer-text {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: bold; color: #fff;
+}
+
 .vote-qr {
   margin: 20px;
   border: 5px solid #ff4444;
@@ -104,13 +121,20 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
     <div class="vote-title">⚠️ 正在投票切歌</div>
     <img id="voteQrImg" class="vote-qr" width="250" height="250" />
     <div class="vote-info">目前票數：<span id="voteStatus" style="color:#ffeb3b; font-size:36px;">0/3</span></div>
-    <div class="vote-timer">剩餘時間：<span id="voteTimeLeft">60</span> 秒</div>
+    <!-- 圓形倒數 -->
+    <div class="vote-timer-circle">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle class="bg" cx="50" cy="50" r="45"></circle>
+        <circle id="voteTimerBar" class="fg" cx="50" cy="50" r="45"></circle>
+      </svg>
+      <div class="timer-text"><span id="voteTimeLeft">60</span></div>
+    </div>
     <div style="margin-top:10px; font-size:14px; color:#888;">掃描 QR Code 參與投票</div>
   </div>
 </div>
 
 <script>
-let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000;
+let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false;
 
 function extractVideoId(url) {
   const m = url && url.match(/v=([^&]+)/);
@@ -171,11 +195,19 @@ function refreshQueueSidebar() {
   ]).then(([queue, settings]) => {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;
+    currentQueue = queue;
 
     // 自動同步播放器：如果佇列第一首跟目前播放的不一樣，就切歌
     if (queue.length > 0) {
       const topVid = extractVideoId(queue[0].url);
       if (currentVideoId && topVid && topVid !== currentVideoId) {
+        // 偵測到切歌：如果之前處於投票狀態，播放成功音效
+        if (isVoting) {
+          const audio = document.getElementById('voteSound');
+          if (audio) {
+            audio.play().catch(() => {});
+          }
+        }
         checkNext();
       }
     } else if (currentVideoId) {
@@ -204,13 +236,11 @@ function refreshQueueSidebar() {
     // 處理投票 Overlay
     const overlay = document.getElementById('voteOverlay');
     if (queue.length > 0 && queue[0].votes > 0) {
+      isVoting = true; // 標記目前正在投票
       overlay.style.display = 'flex';
       document.getElementById('voteStatus').innerText = `${queue[0].votes} / ${voteThreshold}`;
       
-      // 計算剩餘時間
-      const elapsed = Date.now() - (queue[0].voteStartTime || Date.now());
-      const left = Math.max(0, Math.ceil((voteTimeout - elapsed) / 1000));
-      document.getElementById('voteTimeLeft').innerText = left;
+      updateVoteTimerUI();
       
       // 設定 QR Code (使用與右下角相同的連結)
       const mainQr = document.getElementById('qrcode');
@@ -218,6 +248,7 @@ function refreshQueueSidebar() {
         document.getElementById('voteQrImg').src = mainQr.src;
       }
     } else {
+      isVoting = false; // 標記無投票
       overlay.style.display = 'none';
     }
 
@@ -231,6 +262,24 @@ function deleteSong(i) {
 // skip current
 function skipSong() {
   fetch('/finish', { method: 'POST' }).then(() => checkNext());
+}
+
+// 本地倒數計時更新 (每秒)
+function updateVoteTimerUI() {
+  if (currentQueue.length > 0 && currentQueue[0].votes > 0) {
+    const item = currentQueue[0];
+    const elapsed = Date.now() - (item.voteStartTime || Date.now());
+    const leftMs = Math.max(0, voteTimeout - elapsed);
+    const left = Math.ceil(leftMs / 1000);
+    
+    const el = document.getElementById('voteTimeLeft');
+    if (el) el.innerText = left;
+
+    const circle = document.getElementById('voteTimerBar');
+    if (circle) {
+      circle.style.strokeDashoffset = 283 * (1 - (leftMs / voteTimeout));
+    }
+  }
 }
 
 // periodic
@@ -247,6 +296,9 @@ setInterval(() => {
     }
   }
 }, 3500);
+
+// 獨立的計時器更新迴圈 (每秒)
+setInterval(updateVoteTimerUI, 1000);
 </script>
 <div id="qrcodeBox">
   <div id="qrcodeCard">
@@ -265,5 +317,8 @@ document.getElementById("qrcode").src =
   "&ecc=L&color=00ffcc&bgcolor=000000&margin=10";
 
 </script>
+
+<!-- 投票成功音效 -->
+<audio id="voteSound" src="https://www.soundjay.com/misc/sounds/magic-chime-01.mp3" preload="auto"></audio>
 </body>
 </html>

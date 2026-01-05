@@ -223,7 +223,12 @@ app.post('/vote-skip', (req, res) => {
   if (!item.votes) item.votes = 0;
 
   // IP 檢查
-  const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  let userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  // 如果有代理伺服器，x-forwarded-for 可能包含多個 IP，取第一個
+  if (userIp && typeof userIp === 'string' && userIp.indexOf(',') > -1) {
+    userIp = userIp.split(',')[0].trim();
+  }
+
   if (item.votedIps.includes(userIp)) {
     return res.status(400).json({ error: "您已經投過票了" });
   }

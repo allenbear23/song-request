@@ -69,8 +69,12 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     fetch('/vote-skip', { method: 'POST' })
       .then(r => r.json())
       .then(data => {
-        alert(data.message || '已投票');
-        updateVoteStatus();
+        if (data.ok) {
+          alert(data.message || '已投票');
+          updateVoteStatus();
+        } else {
+          alert(data.error || '投票失敗');
+        }
       })
       .catch(() => alert('投票失敗，請稍後再試'));
   }

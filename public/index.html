@@ -49,6 +49,13 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
   <hr>
 
+  <!-- 投票切歌區塊 -->
+  <div id="voteSection" style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
+    <div style="font-size:13px; color:#aaa;">🎵 正在播放</div>
+    <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
+    <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
+  </div>
+
   <div>
     <div class="small">目前排隊：</div>
     <ul id="queueList"></ul>
@@ -56,5 +63,34 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 </div>
 
 <script src="request.js"></script>
+<script>
+  // 投票切歌功能
+  function voteSkip() {
+    fetch('/vote-skip', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        alert(data.message || '已投票');
+        updateVoteStatus();
+      })
+      .catch(() => alert('投票失敗，請稍後再試'));
+  }
+
+  // 更新正在播放與票數狀態
+  function updateVoteStatus() {
+    fetch('/queue').then(r => r.json()).then(queue => {
+      const voteSection = document.getElementById('voteSection');
+      if (queue && queue.length > 0) {
+        voteSection.style.display = 'block';
+        document.getElementById('npTitle').innerText = queue[0].title;
+        const votes = queue[0].votes || 0;
+        document.getElementById('voteCount').innerText = `(${votes} 票)`;
+      } else {
+        voteSection.style.display = 'none';
+      }
+    });
+  }
+  setInterval(updateVoteStatus, 3000);
+  updateVoteStatus();
+</script>
 </body>
 </html>

@@ -133,6 +133,7 @@ function refreshQueueSidebar() {
         <div class="info">
           <div class="title">${idx === 0 ? '▶ ' : (idx+1) + '. '}${it.title}</div>
           <div class="channel">${it.channel || ''}</div>
+          ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold;">🗳 目前 ${it.votes} 票切歌</div>` : ''}
         </div>
         <div class="controls">
           ${idx !== 0 ? `<button class="del-btn" onclick="deleteSong(${idx})">刪除</button>` : ''}
@@ -171,7 +172,7 @@ setInterval(() => {
 <div id="qrcodeBox">
   <div id="qrcodeCard">
     <img id="qrcode" width="150" alt="點歌 QR Code">
-    <div style="text-align:center; font-size:12px; color:#fff; margin-top:4px;">掃描點歌</div>
+    <div style="text-align:center; font-size:28px; color:#fff; margin-top:4px;">掃描點歌</div>
   </div>
 </div>
 

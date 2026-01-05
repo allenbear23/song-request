@@ -188,6 +188,25 @@ app.post('/finish', (req, res) => {
   res.json({ ok: true });
 });
 
+// 投票切歌 API
+app.post('/vote-skip', (req, res) => {
+  const q = readQueue();
+  if (q.length === 0) return res.status(400).json({ error: "目前沒有歌曲" });
+
+  const item = q[0];
+  item.votes = (item.votes || 0) + 1;
+  const THRESHOLD = 3; // 設定 3 票切歌
+
+  if (item.votes >= THRESHOLD) {
+    q.shift(); // 移除目前歌曲
+    writeQueue(q);
+    return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
+  }
+
+  writeQueue(q);
+  res.json({ ok: true, message: "投票成功", votes: item.votes });
+});
+
 // Get full queue
 app.get('/queue', (req, res) => {
   const q = readQueue();

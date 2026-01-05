@@ -13,6 +13,9 @@ const PORT = process.env.PORT || 3000;
 const YT_API_KEY = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0";
 // ------------------------------------------------
 
+let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
+const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -188,16 +191,50 @@ app.post('/finish', (req, res) => {
   res.json({ ok: true });
 });
 
+// 檢查投票是否過期 (Helper)
+function checkVoteExpiry(q) {
+  if (q.length > 0) {
+    const item = q[0];
+    if (item.votes && item.voteStartTime) {
+      const elapsed = Date.now() - item.voteStartTime;
+      if (elapsed > VOTE_TIMEOUT) {
+        // 過期重置
+        item.votes = 0;
+        item.votedIps = [];
+        delete item.voteStartTime;
+        writeQueue(q);
+      }
+    }
+  }
+}
+
 // 投票切歌 API
 app.post('/vote-skip', (req, res) => {
   const q = readQueue();
   if (q.length === 0) return res.status(400).json({ error: "目前沒有歌曲" });
 
-  const item = q[0];
-  item.votes = (item.votes || 0) + 1;
-  const THRESHOLD = 3; // 設定 3 票切歌
+  // 檢查是否過期
+  checkVoteExpiry(q);
 
-  if (item.votes >= THRESHOLD) {
+  const item = q[0];
+  
+  // 初始化欄位
+  if (!item.votedIps) item.votedIps = [];
+  if (!item.votes) item.votes = 0;
+
+  // IP 檢查
+  const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (item.votedIps.includes(userIp)) {
+    return res.status(400).json({ error: "您已經投過票了" });
+  }
+
+  // 第一次投票設定開始時間
+  if (item.votes === 0) item.voteStartTime = Date.now();
+
+  item.votedIps.push(userIp);
+  item.votes = (item.votes || 0) + 1;
+
+  if (item.votes >= VOTE_THRESHOLD) {
     q.shift(); // 移除目前歌曲
     writeQueue(q);
     return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
@@ -210,6 +247,7 @@ app.post('/vote-skip', (req, res) => {
 // Get full queue
 app.get('/queue', (req, res) => {
   const q = readQueue();
+  checkVoteExpiry(q); // 讀取時順便檢查過期
   res.json(q);
 });
 
@@ -261,6 +299,23 @@ app.post('/playlist/clear', (req, res) => {
     res.status(500).json({ error: "clear playlist error" });
   }
 });
+
+// 取得設定 (公開)
+app.get('/settings', (req, res) => {
+  res.json({ threshold: VOTE_THRESHOLD, timeout: VOTE_TIMEOUT });
+});
+
+// 修改門檻 (管理員)
+app.post('/admin/threshold', protect, (req, res) => {
+  const val = parseInt(req.body.threshold);
+  if (val && val > 0) {
+    VOTE_THRESHOLD = val;
+    res.json({ ok: true, threshold: VOTE_THRESHOLD });
+  } else {
+    res.status(400).json({ error: "無效的數值" });
+  }
+});
+
 app.use((req, res, next) => {
   const protectPages = ["/display.html", "/admin.html"];
   if (protectPages.includes(req.path)) {

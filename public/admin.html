@@ -1,118 +1,65 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin 控制台</title>
-
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #111;
-      color: #fff;
-      padding: 25px;
-    }
-
-    h1 {
-      color: #ffcc00;
-      margin-bottom: 15px;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      margin: 8px;
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #ffcc00;
-      font-size: 16px;
-      transition: 0.2s;
-    }
-
-    .btn:hover {
-      background: #333;
-      transform: scale(1.03);
-    }
-
-    #queueBox {
-      margin-top: 25px;
-      padding: 15px;
-      background: #1a1a1a;
-      border-radius: 10px;
-      border: 1px solid #333;
-    }
-
-    .song-item {
-      padding: 10px;
-      border-bottom: 1px solid #333;
-    }
-
-    .song-item:last-child {
-      border-bottom: none;
-    }
-
-    .empty {
-      color: #888;
-      font-style: italic;
-    }
-  </style>
+<meta charset="utf-8">
+<title>後台管理</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; background: #111; color: #eee; }
+h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
+.card { background: #222; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+label { display: block; margin-bottom: 8px; font-weight: bold; }
+input { padding: 8px; width: 100px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px; }
+button { padding: 8px 16px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+button:hover { background: #0056b3; }
+.msg { margin-top: 10px; color: #4caf50; }
+</style>
 </head>
 <body>
 
-  <h1>🎛 Admin 控制台</h1>
+<h1>⚙️ 系統設定</h1>
 
-  <button class="btn" onclick="savePlaylist()">💾 儲存歌單</button>
-  <button class="btn" onclick="loadPlaylist()">📂 載入歌單</button>
-  <button class="btn" onclick="clearPlaylist()">🗑 清空歌單</button>
-
-  <div id="queueBox">
-    <h2>📜 已點歌單</h2>
-    <div id="queueList" class="empty">載入中...</div>
+<div class="card">
+  <h3>投票切歌設定</h3>
+  <label>切歌門檻 (票數)</label>
+  <div style="display:flex; gap:10px;">
+    <input type="number" id="thresholdInput" min="1" value="3">
+    <button onclick="saveThreshold()">儲存設定</button>
   </div>
+  <div id="msg" class="msg"></div>
+</div>
 
-  <script>
-    function savePlaylist() {
-      fetch('/playlist/save', { method: 'POST' })
-        .then(r => r.json())
-        .then(() => alert("✔ 歌單已儲存"));
-    }
+<div class="card">
+  <h3>其他功能</h3>
+  <p>
+    <a href="/display.html" target="_blank" style="color:#4da3ff">開啟播放頁面</a> | 
+    <a href="/" target="_blank" style="color:#4da3ff">開啟點歌頁面</a>
+  </p>
+</div>
 
-    function loadPlaylist() {
-      fetch('/playlist/load', { method: 'POST' })
-        .then(r => r.json())
-        .then(() => alert("📂 歌單已載入"));
-    }
+<script>
+  // 載入目前設定
+  fetch('/settings')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('thresholdInput').value = data.threshold;
+    });
 
-    function clearPlaylist() {
-      fetch('/playlist/clear', { method: 'POST' })
-        .then(r => r.json())
-        .then(() => alert("🗑 已清空歌單"));
-    }
-
-    // 更新 Queue 顯示
-    function refreshQueue() {
-      fetch('/queue')
-        .then(r => r.json())
-        .then(queue => {
-          const box = document.getElementById('queueList');
-          if (queue.length === 0) {
-            box.innerHTML = '<div class="empty">目前沒有歌曲</div>';
-            return;
-          }
-
-          box.innerHTML = queue.map((s, i) => `
-            <div class="song-item">
-              <b>#${i + 1}</b> — ${s.title}
-            </div>
-          `).join('');
-        });
-    }
-
-    // 每 3 秒更新一次
-    setInterval(refreshQueue, 3000);
-    refreshQueue();
-  </script>
+  function saveThreshold() {
+    const val = document.getElementById('thresholdInput').value;
+    fetch('/admin/threshold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threshold: val })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.ok) document.getElementById('msg').innerText = "✅ 設定已更新為 " + data.threshold + " 票";
+      else alert(data.error);
+    })
+    .catch(err => alert("儲存失敗"));
+  }
+</script>
 
 </body>
 </html>

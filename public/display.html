@@ -103,7 +103,21 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 #skipOverlay {
   display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
   background:rgba(0,0,0,0.95); z-index:300; flex-direction:column; align-items:center; justify-content:center; 
-  animation:fadeIn 0.5s;
+  /* 背景淡入 */
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 印章動畫容器 */
+.stamp-container {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  /* 初始狀態 */
+  transform-origin: center;
+  animation: stampDrop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1.25) forwards;
+}
+
+@keyframes stampDrop {
+  0% { opacity: 0; transform: scale(3) translateY(-50px) rotate(-15deg); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); filter: blur(0); }
 }
 </style>
 </head>
@@ -149,9 +163,11 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 
 <!-- 管理員切歌訊息顯示層 -->
 <div id="skipOverlay">
-  <h1 style="color:#ff4444; font-size:48px; margin-bottom:20px; text-shadow: 0 0 10px #ff0000;">🛑 管理員切歌</h1>
-  <img id="skipImageDisplay" style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
-  <div id="skipReasonDisplay" style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
+  <div class="stamp-container">
+    <h1 style="color:#ff4444; font-size:48px; margin-bottom:20px; text-shadow: 0 0 10px #ff0000; border: 4px solid #ff4444; padding: 10px 30px; border-radius: 10px; transform: rotate(-2deg); background: rgba(0,0,0,0.5);">🛑 管理員切歌</h1>
+    <img id="skipImageDisplay" style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
+    <div id="skipReasonDisplay" style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
+  </div>
 </div>
 
 <script>

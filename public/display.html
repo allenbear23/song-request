@@ -102,6 +102,13 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 </head>
 <body>
 
+<!-- 啟動音效遮罩 (解決瀏覽器自動播放限制) -->
+<div id="startOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;color:#fff;">
+  <div style="font-size:40px;">🔊</div>
+  <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
+  <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
+</div>
+
 <div id="player-container">
   <button id="skipBtn" onclick="skipSong()">⏭ 跳過目前這首</button>
   <div id="player"></div>
@@ -205,7 +212,7 @@ function refreshQueueSidebar() {
         if (isVoting) {
           const audio = document.getElementById('voteSound');
           if (audio) {
-            audio.play().catch(() => {});
+            audio.play().catch(e => console.error("播放音效失敗(切歌):", e));
           }
         }
         checkNext();
@@ -238,7 +245,7 @@ function refreshQueueSidebar() {
     if (queue.length > 0 && queue[0].votes > 0) {
       if (!isVoting) {
         const audio = document.getElementById('voteSound');
-        if (audio) audio.play().catch(() => {});
+        if (audio) audio.play().catch(e => console.error("播放音效失敗(投票開始):", e));
       }
       isVoting = true; // 標記目前正在投票
       overlay.style.display = 'flex';
@@ -304,6 +311,18 @@ setInterval(() => {
 // 獨立的計時器更新迴圈 (每秒)
 setInterval(updateVoteTimerUI, 1000);
 </script>
+<script>
+// 處理音效解鎖
+document.getElementById('startOverlay').addEventListener('click', function() {
+  const audio = document.getElementById('voteSound');
+  // 嘗試播放並立即暫停，以解鎖 AudioContext
+  if(audio) {
+    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(e => console.error("音效解鎖失敗", e));
+  }
+  this.style.display = 'none';
+});
+</script>
+
 <div id="qrcodeBox">
   <div id="qrcodeCard">
     <img id="qrcode" width="150" alt="點歌 QR Code">

@@ -66,7 +66,18 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <script>
   // 投票切歌功能
   function voteSkip() {
-    fetch('/vote-skip', { method: 'POST' })
+    // 取得或產生唯一的 Client ID (解決同 WiFi 無法投票問題)
+    let clientId = localStorage.getItem('song_req_client_id');
+    if (!clientId) {
+      clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem('song_req_client_id', clientId);
+    }
+
+    fetch('/vote-skip', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: clientId })
+    })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {

@@ -236,6 +236,10 @@ function refreshQueueSidebar() {
     // 處理投票 Overlay
     const overlay = document.getElementById('voteOverlay');
     if (queue.length > 0 && queue[0].votes > 0) {
+      if (!isVoting) {
+        const audio = document.getElementById('voteSound');
+        if (audio) audio.play().catch(() => {});
+      }
       isVoting = true; // 標記目前正在投票
       overlay.style.display = 'flex';
       document.getElementById('voteStatus').innerText = `${queue[0].votes} / ${voteThreshold}`;

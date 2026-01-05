@@ -150,9 +150,10 @@ function checkNext() {
 }
 
 function refreshQueueSidebar() {
+  // 使用 Promise.all 同時取得 queue 與 settings，並加入錯誤處理與 Cache Busting
   Promise.all([
-    fetch('/queue').then(r => r.json()),
-    fetch('/settings').then(r => r.json())
+    fetch('/queue?_=' + Date.now()).then(r => r.json()),
+    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000}).catch(() => ({threshold:3, timeout:60000}))
   ]).then(([queue, settings]) => {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;
@@ -188,7 +189,10 @@ function refreshQueueSidebar() {
       document.getElementById('voteTimeLeft').innerText = left;
       
       // 設定 QR Code (使用與右下角相同的連結)
-      document.getElementById('voteQrImg').src = document.getElementById('qrcode').src;
+      const mainQr = document.getElementById('qrcode');
+      if (mainQr) {
+        document.getElementById('voteQrImg').src = mainQr.src;
+      }
     } else {
       overlay.style.display = 'none';
     }
@@ -220,7 +224,6 @@ setInterval(() => {
   }
 }, 3500);
 </script>
-</body>
 <div id="qrcodeBox">
   <div id="qrcodeCard">
     <img id="qrcode" width="150" alt="點歌 QR Code">
@@ -238,5 +241,5 @@ document.getElementById("qrcode").src =
   "&ecc=L&color=00ffcc&bgcolor=000000&margin=10";
 
 </script>
-
+</body>
 </html>

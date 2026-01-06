@@ -29,8 +29,22 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   <!-- public/index.html (加入於 <head> 或 <body> 之前) -->
 <!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
 
+<!-- 全域登入遮罩 (卡片) -->
+<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div style="background:#1f1f1f; padding:30px; border-radius:16px; text-align:center; box-shadow:0 4px 30px rgba(0,0,0,0.8); max-width:85%; width:300px; border:1px solid #333;">
+    <h2 style="margin:0 0 15px; color:#fff;">🎵 手機點歌</h2>
+    <p style="color:#aaa; margin-bottom:25px; line-height:1.5;">為了防止濫用<br>請先登入 LINE 帳號以繼續</p>
+    <button onclick="handleLineLogin()" style="background:#06c755; color:#fff; font-weight:bold; padding:12px 24px; border-radius:30px; width:100%; font-size:16px;">
+      LINE 登入
+    </button>
+  </div>
+</div>
+
 <div class="container">
-  <h1>手機點歌</h1>
+  <h1 style="display:flex; justify-content:space-between; align-items:center;">
+    手機點歌
+    <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
+  </h1>
 
   <!-- 搜尋 -->
   <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" >
@@ -58,11 +72,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
     
     <!-- LINE 登入與投票控制區 -->
-    <button id="lineLoginBtn" onclick="handleLineLogin()" style="display:none;">LINE 登入以投票</button>
-    <div id="voteControlArea" style="display:none;">
-      <div id="lineUserInfo" style="font-size:12px; color:#06c755; margin-top:5px;"></div>
-      <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
-    </div>
+    <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
   </div>
 
   <div>
@@ -130,17 +140,15 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   }
 
   function updateLoginUI() {
-    const loginBtn = document.getElementById('lineLoginBtn');
-    const voteArea = document.getElementById('voteControlArea');
-    const userInfo = document.getElementById('lineUserInfo');
+    const overlay = document.getElementById('loginOverlay');
+    const globalUser = document.getElementById('globalUserInfo');
 
     if (currentLineProfile) {
-      loginBtn.style.display = 'none';
-      voteArea.style.display = 'block';
-      userInfo.innerText = `Hi, ${currentLineProfile.displayName}`;
+      overlay.style.display = 'none';
+      globalUser.innerText = `Hi, ${currentLineProfile.displayName}`;
     } else {
-      loginBtn.style.display = 'block';
-      voteArea.style.display = 'none';
+      overlay.style.display = 'flex';
+      globalUser.innerText = '';
     }
   }
 

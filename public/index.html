@@ -58,7 +58,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
     
     <!-- LINE 登入與投票控制區 -->
-    <button id="lineLoginBtn" onclick="liff.login()" style="display:none;">LINE 登入以投票</button>
+    <button id="lineLoginBtn" onclick="handleLineLogin()" style="display:none;">LINE 登入以投票</button>
     <div id="voteControlArea" style="display:none;">
       <div id="lineUserInfo" style="font-size:12px; color:#06c755; margin-top:5px;"></div>
       <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
@@ -84,13 +84,27 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         liff.getProfile().then(profile => {
           currentLineProfile = profile;
           updateLoginUI();
-        }).catch(err => console.error(err));
+        }).catch(err => {
+          console.error('取得個資失敗', err);
+          // 若取得個資失敗，顯示登入按鈕讓使用者重試
+          updateLoginUI();
+        });
       } else {
         updateLoginUI();
       }
     }).catch(err => {
       console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
+      alert('LINE 登入元件初始化失敗，請檢查網路連線或重新整理頁面。\n錯誤訊息: ' + err);
     });
+  }
+
+  function handleLineLogin() {
+    try {
+      // 明確指定 redirectUri 為當前頁面，解決部分裝置無法跳轉的問題
+      liff.login({ redirectUri: window.location.href });
+    } catch (err) {
+      alert('無法啟動登入: ' + err);
+    }
   }
 
   function updateLoginUI() {
@@ -123,7 +137,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     // 檢查 LINE 登入狀態
     if (!currentLineProfile) {
       alert('請先登入 LINE 才能投票');
-      liff.login();
+      handleLineLogin();
       return;
     }
     // 使用 LINE User ID 作為識別

@@ -40,6 +40,19 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   </div>
 </div>
 
+<!-- 排行榜遮罩 -->
+<div id="leaderboardOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
+  <div style="background:#1f1f1f; width:90%; max-width:360px; max-height:80%; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.8); border:1px solid #333; overflow:hidden;">
+    <div style="padding:15px 20px; background:#252525; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; color:#ffeb3b; font-size:18px;">🏆 點歌風雲榜</h3>
+      <button onclick="closeLeaderboard()" style="background:none; border:none; color:#aaa; font-size:24px; padding:0; width:auto; line-height:1; cursor:pointer;">&times;</button>
+    </div>
+    <div id="leaderboardList" style="flex:1; overflow-y:auto; padding:0 15px;">
+      <!-- JS 填入內容 -->
+    </div>
+  </div>
+</div>
+
 <div class="container">
   <h1 style="display:flex; justify-content:space-between; align-items:center;">
     手機點歌
@@ -76,7 +89,10 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   </div>
 
   <div>
-    <div class="small">目前排隊：</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+      <div class="small" style="margin:0;">目前排隊：</div>
+      <div onclick="showLeaderboard()" style="font-size:13px; color:#ffeb3b; cursor:pointer; padding:4px 8px; background:#333; border-radius:4px; border:1px solid #444;">🏆 查看排行榜</div>
+    </div>
     <ul id="queueList"></ul>
   </div>
 </div>
@@ -210,6 +226,54 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   }
   setInterval(updateVoteStatus, 3000);
   updateVoteStatus();
+
+  // --- 排行榜功能 ---
+  function showLeaderboard() {
+    const overlay = document.getElementById('leaderboardOverlay');
+    overlay.style.display = 'flex';
+    
+    const list = document.getElementById('leaderboardList');
+    list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">載入中...</div>';
+
+    fetch('/leaderboard')
+      .then(r => r.json())
+      .then(data => {
+        list.innerHTML = '';
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">目前沒有資料</div>';
+          return;
+        }
+        
+        data.forEach((user, idx) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;';
+          
+          let rankColor = '#888';
+          let rankIcon = idx + 1;
+          if (idx === 0) { rankColor = '#ffd700'; rankIcon = '🥇'; }
+          else if (idx === 1) { rankColor = '#c0c0c0'; rankIcon = '🥈'; }
+          else if (idx === 2) { rankColor = '#cd7f32'; rankIcon = '🥉'; }
+
+          row.innerHTML = `
+            <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
+            <img src="${user.picture || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; margin:0 10px; object-fit:cover; background:#333;">
+            <div style="flex:1; overflow:hidden;">
+              <div style="color:#fff; font-size:14px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user.name || '未知'}</div>
+            </div>
+            <div style="color:#06c755; font-weight:bold; font-size:14px;">${user.count} 首</div>
+          `;
+          list.appendChild(row);
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        list.innerHTML = '<div style="text-align:center; color:#ff4444; padding:20px;">載入失敗<br><span style="font-size:12px; color:#666;">(請確認後端 /leaderboard API 已實作)</span></div>';
+      });
+  }
+
+  function closeLeaderboard() {
+    document.getElementById('leaderboardOverlay').style.display = 'none';
+  }
 </script>
 </body>
 </html>

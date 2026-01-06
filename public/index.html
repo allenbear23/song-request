@@ -112,7 +112,8 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
           window.location.href = `https://liff.line.me/${LIFF_ID}`;
         } else {
           // 電腦版 -> 一般網頁登入
-          liff.login();
+          // ⚠️ 注意：此網址必須加入 LINE Developers 的 "Callback URL"
+          liff.login({ redirectUri: window.location.href });
         }
       }
     } catch (err) {

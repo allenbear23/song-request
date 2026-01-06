@@ -105,16 +105,10 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         // 直接登入，不需指定 redirectUri，避免參數錯誤導致無反應
         liff.login();
       } else {
-        // 情境 2: 外部瀏覽器 (Chrome/Safari)
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
-          // 手機外部瀏覽器 -> 跳轉 LIFF URL 喚起 LINE App
-          window.location.href = `https://liff.line.me/${LIFF_ID}`;
-        } else {
-          // 電腦版 -> 一般網頁登入
-          // ⚠️ 注意：此網址必須加入 LINE Developers 的 "Callback URL"
-          liff.login({ redirectUri: window.location.href });
-        }
+        // 情境 2: 外部瀏覽器 (Chrome/Safari/電腦)
+        // 統一使用 liff.login()，這是官方建議最穩定的方式，可解決 Chrome 不跳轉的問題
+        // ⚠️ 請確認 LINE Developers 後台的 "Callback URL" 已包含此頁面網址
+        liff.login({ redirectUri: window.location.href });
       }
     } catch (err) {
       alert('無法啟動登入: ' + err);

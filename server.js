@@ -15,6 +15,7 @@ const YT_API_KEY = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0";
 
 let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
 const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
+const USERS_FILE = 'users.json'; // 使用者統計資料檔
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -57,6 +58,25 @@ function writeQueue(q) {
     fs.writeFileSync('requests.json', JSON.stringify(q, null, 2));
   } catch (e) {
     console.error('writeQueue error:', e);
+  }
+}
+
+function readUsers() {
+  try {
+    if (!fs.existsSync(USERS_FILE)) return {};
+    const raw = fs.readFileSync(USERS_FILE, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch (e) {
+    console.error('readUsers error:', e);
+    return {};
+  }
+}
+
+function writeUsers(data) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error('writeUsers error:', e);
   }
 }
 
@@ -119,7 +139,7 @@ const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdVAxAsAAAAABzsj87WM7
 
 app.post('/request', async (req, res) => {
   try {
-    const { url, token } = req.body;
+    const { url, token, user } = req.body;
 
     // 驗證 token 是否送來
     if (!token) {
@@ -165,6 +185,18 @@ app.post('/request', async (req, res) => {
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
+    
+    // --- 記錄使用者點歌次數 ---
+    if (user && user.userId) {
+      const users = readUsers();
+      if (!users[user.userId]) users[user.userId] = { count: 0 };
+      
+      users[user.userId].name = user.displayName; // 更新最新暱稱
+      users[user.userId].picture = user.pictureUrl; // 更新最新頭貼
+      users[user.userId].count = (users[user.userId].count || 0) + 1;
+      writeUsers(users);
+    }
+    
     queue.push({ url: fullUrl, title: info.title, channel: info.channel, thumbnail: info.thumbnail });
     writeQueue(queue);
 
@@ -259,6 +291,19 @@ app.get('/queue', (req, res) => {
   const q = readQueue();
   checkVoteExpiry(q); // 讀取時順便檢查過期
   res.json(q);
+});
+
+// 排行榜 API
+app.get('/leaderboard', (req, res) => {
+  const users = readUsers();
+  // 轉為陣列並排序
+  const list = Object.values(users).map(u => ({
+    name: u.name,
+    picture: u.picture,
+    count: u.count
+  }));
+  list.sort((a, b) => b.count - a.count); // 由大到小排序
+  res.json(list.slice(0, 20)); // 只回傳前 20 名
 });
 
 // Delete by index

@@ -113,10 +113,20 @@ function sendRequest(url) {
 
   showToast("傳送中…", "請稍候");
 
+  // 準備使用者資料 (若已登入)
+  let userData = null;
+  if (typeof currentLineProfile !== 'undefined' && currentLineProfile) {
+    userData = {
+      userId: currentLineProfile.userId,
+      displayName: currentLineProfile.displayName,
+      pictureUrl: currentLineProfile.pictureUrl
+    };
+  }
+
   fetch('/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, token })
+    body: JSON.stringify({ url, token, user: userData })
   })
     .then(r => r.json())
     .then(data => {

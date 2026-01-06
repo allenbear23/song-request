@@ -24,7 +24,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <body>
   <!-- public/index.html (加入於 <head> 或 <body> 之前) -->
 <!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 <div class="container">
   <h1>手機點歌</h1>
@@ -66,6 +65,13 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <script>
   // 投票切歌功能
   function voteSkip() {
+    // 檢查 reCAPTCHA 是否已勾選
+    const captchaResponse = grecaptcha.getResponse();
+    if (!captchaResponse) {
+      alert('請先勾選「我不是機器人」');
+      return;
+    }
+
     // 取得或產生唯一的 Client ID (解決同 WiFi 無法投票問題)
     let clientId = localStorage.getItem('song_req_client_id');
     if (!clientId) {
@@ -76,10 +82,11 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     fetch('/vote-skip', { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: clientId })
+      body: JSON.stringify({ clientId: clientId, captcha: captchaResponse })
     })
       .then(r => r.json())
       .then(data => {
+        grecaptcha.reset(); // 重置驗證碼，準備下一次使用
         if (data.ok) {
           alert(data.message || '已投票');
           updateVoteStatus();
@@ -87,7 +94,10 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
           alert(data.error || '投票失敗');
         }
       })
-      .catch(() => alert('投票失敗，請稍後再試'));
+      .catch(() => {
+        grecaptcha.reset();
+        alert('投票失敗，請稍後再試');
+      });
   }
 
   // 更新正在播放與票數狀態

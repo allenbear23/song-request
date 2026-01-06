@@ -7,6 +7,8 @@
 <style>
 body { font-family: Arial; max-width: 720px; margin: 18px auto; padding: 14px; background: #0b0b0b; color: #f5f5f5; }
 .container { background: #0f0f0f; padding: 14px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+/* LINE 登入按鈕樣式 */
+#lineLoginBtn { background: #06c755; color: #fff; font-weight: bold; }
 h1 { margin: 6px 0 12px; font-size: 20px; color: #fff; }
 input, button { width: 100%; padding: 12px; font-size: 16px; margin-top: 8px; border-radius:6px; border: none; }
 input { background: #111; color: #fff; }
@@ -21,6 +23,8 @@ button { background: #ff4444; color: #fff; font-weight: bold; }
 hr { border:0; height:1px; background:#222; margin:12px 0; }
 </style>
 </head>
+<!-- 引入 LINE LIFF SDK -->
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <body>
   <!-- public/index.html (加入於 <head> 或 <body> 之前) -->
 <!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
@@ -52,7 +56,13 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   <div id="voteSection" style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
     <div style="font-size:13px; color:#aaa;">🎵 正在播放</div>
     <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
-    <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
+    
+    <!-- LINE 登入與投票控制區 -->
+    <button id="lineLoginBtn" onclick="liff.login()" style="display:none;">LINE 登入以投票</button>
+    <div id="voteControlArea" style="display:none;">
+      <div id="lineUserInfo" style="font-size:12px; color:#06c755; margin-top:5px;"></div>
+      <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
+    </div>
   </div>
 
   <div>
@@ -63,6 +73,44 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
 <script src="request.js"></script>
 <script>
+  // --- LINE LIFF 設定 ---
+  // ⚠️ 請將此處替換為你在 LINE Developers 申請的 LIFF ID
+  const LIFF_ID = 'YOUR_LIFF_ID_HERE'; 
+  let currentLineProfile = null;
+
+  function initLiff() {
+    liff.init({ liffId: LIFF_ID }).then(() => {
+      if (liff.isLoggedIn()) {
+        liff.getProfile().then(profile => {
+          currentLineProfile = profile;
+          updateLoginUI();
+        }).catch(err => console.error(err));
+      } else {
+        updateLoginUI();
+      }
+    }).catch(err => {
+      console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
+    });
+  }
+
+  function updateLoginUI() {
+    const loginBtn = document.getElementById('lineLoginBtn');
+    const voteArea = document.getElementById('voteControlArea');
+    const userInfo = document.getElementById('lineUserInfo');
+
+    if (currentLineProfile) {
+      loginBtn.style.display = 'none';
+      voteArea.style.display = 'block';
+      userInfo.innerText = `Hi, ${currentLineProfile.displayName}`;
+    } else {
+      loginBtn.style.display = 'block';
+      voteArea.style.display = 'none';
+    }
+  }
+
+  // 啟動 LIFF
+  initLiff();
+
   // 投票切歌功能
   function voteSkip() {
     // 檢查 reCAPTCHA 是否已勾選
@@ -72,12 +120,14 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
       return;
     }
 
-    // 取得或產生唯一的 Client ID (解決同 WiFi 無法投票問題)
-    let clientId = localStorage.getItem('song_req_client_id');
-    if (!clientId) {
-      clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem('song_req_client_id', clientId);
+    // 檢查 LINE 登入狀態
+    if (!currentLineProfile) {
+      alert('請先登入 LINE 才能投票');
+      liff.login();
+      return;
     }
+    // 使用 LINE User ID 作為識別
+    const clientId = currentLineProfile.userId;
 
     fetch('/vote-skip', { 
       method: 'POST', 

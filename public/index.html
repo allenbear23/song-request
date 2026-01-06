@@ -106,9 +106,13 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         liff.login();
       } else {
         // 情境 2: 外部瀏覽器 (Chrome/Safari/電腦)
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // 加強行動裝置偵測 (包含 iPadOS)
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isMobile) {
           // 手機版：使用 LIFF URL 強制喚起 LINE App
-          window.location.href = `https://liff.line.me/${LIFF_ID}`;
+          // 加上時間戳記避免快取，確保每次都嘗試喚起
+          window.location.href = `https://liff.line.me/${LIFF_ID}?t=${Date.now()}`;
         } else {
           // 電腦版：使用標準網頁登入
           liff.login({ redirectUri: window.location.href });

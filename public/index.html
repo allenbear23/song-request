@@ -100,15 +100,20 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
   function handleLineLogin() {
     try {
-      // 偵測是否為行動裝置
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile && !liff.isInClient()) {
-        // 行動裝置：使用 LIFF URL 強制喚起 LINE App (解決部分裝置無法自動跳轉的問題)
-        window.location.href = `https://liff.line.me/${LIFF_ID}`;
+      if (liff.isInClient()) {
+        // 情境 1: 已經在 LINE App 內 (LIFF 瀏覽器)
+        // 直接登入，不需指定 redirectUri，避免參數錯誤導致無反應
+        liff.login();
       } else {
-        // 電腦版：使用標準網頁登入
-        liff.login({ redirectUri: window.location.href });
+        // 情境 2: 外部瀏覽器 (Chrome/Safari)
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          // 手機外部瀏覽器 -> 跳轉 LIFF URL 喚起 LINE App
+          window.location.href = `https://liff.line.me/${LIFF_ID}`;
+        } else {
+          // 電腦版 -> 一般網頁登入
+          liff.login();
+        }
       }
     } catch (err) {
       alert('無法啟動登入: ' + err);

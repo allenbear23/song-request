@@ -110,9 +110,15 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isMobile) {
-          // 手機版：使用 LIFF URL 強制喚起 LINE App
-          // 加上時間戳記避免快取，確保每次都嘗試喚起
-          window.location.href = `https://liff.line.me/${LIFF_ID}?t=${Date.now()}`;
+          // 強制使用 line:// 協議喚起 App (比 https 連結更暴力)
+          window.location.href = `line://app/${LIFF_ID}`;
+          
+          // 備用機制：如果使用者沒裝 LINE 或喚起失敗，1.5 秒後導向網頁版 LIFF
+          setTimeout(() => {
+            if (document.visibilityState === 'visible') {
+              window.location.href = `https://liff.line.me/${LIFF_ID}`;
+            }
+          }, 1500);
         } else {
           // 電腦版：使用標準網頁登入
           liff.login({ redirectUri: window.location.href });

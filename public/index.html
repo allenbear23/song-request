@@ -64,8 +64,9 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   <button onclick="searchYT()">搜尋</button>
   <div id="searchList"></div>
   <div class="g-recaptcha"
-     data-sitekey="6LdVAxAsAAAAACKS0uVjLqmJS4FE7-qthguwBcYv">
-</div>
+     data-sitekey="6LdVAxAsAAAAACKS0uVjLqmJS4FE7-qthguwBcYv"
+     data-size="invisible"
+     data-callback="onCaptchaSolved"></div>
 
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
@@ -171,21 +172,36 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   // 啟動 LIFF
   initLiff();
 
+  // reCAPTCHA Callback
+  window.onCaptchaSolved = function(token) {
+    const action = window.pendingCaptchaAction;
+    if (!action) return;
+    
+    if (action.type === 'vote') {
+      executeVoteSkip(token);
+    } else if (action.type === 'request') {
+      if (window.executeSendRequest) {
+        window.executeSendRequest(action.url, token);
+      }
+    }
+    window.pendingCaptchaAction = null;
+  };
+
   // 投票切歌功能
   function voteSkip() {
-    // 檢查 reCAPTCHA 是否已勾選
-    const captchaResponse = grecaptcha.getResponse();
-    if (!captchaResponse) {
-      alert('請先勾選「我不是機器人」');
-      return;
-    }
-
     // 檢查 LINE 登入狀態
     if (!currentLineProfile) {
       alert('請先登入 LINE 才能投票');
       handleLineLogin();
       return;
     }
+    
+    // 觸發 Invisible reCAPTCHA
+    window.pendingCaptchaAction = { type: 'vote' };
+    grecaptcha.execute();
+  }
+
+  function executeVoteSkip(captchaResponse) {
     // 使用 LINE User ID 作為識別
     const clientId = currentLineProfile.userId;
 

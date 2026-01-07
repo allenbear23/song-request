@@ -103,14 +103,12 @@ function sendRequestFromInput() {
 
 // --- 點歌 API ---
 function sendRequest(url) {
-  // 取得 reCAPTCHA token（checkbox 要有勾選）
-  const token = grecaptcha.getResponse();
+  // 觸發 Invisible reCAPTCHA
+  window.pendingCaptchaAction = { type: 'request', url: url };
+  grecaptcha.execute();
+}
 
-  if (!token) {
-    showToast("驗證失敗", "請往下滑完成驗證，我不是機器人");
-    return;
-  }
-
+window.executeSendRequest = function(url, token) {
   showToast("傳送中…", "請稍候");
 
   // 準備使用者資料 (若已登入)

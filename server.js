@@ -170,7 +170,7 @@ app.get('/search', async (req, res) => {
 });
 
 // Request (add to queue) — accepts either full URL or videoId via url param
-const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdVAxAsAAAAABzsj87WM7MJBBTwLyXZmDCF6zvw';
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdTREMsAAAAAHaezhLTPt4ldYTyFj-rulrmYRIk';
 
 app.post('/request', async (req, res) => {
   try {
@@ -200,9 +200,9 @@ app.post('/request', async (req, res) => {
     const verifyJson = await verifyRes.json();
 
     // verifyJson 範例: { success: true, score: 0.9, action: "submit", ... }
-    if (!verifyJson.success) {
+    if (!verifyJson.success || (verifyJson.score !== undefined && verifyJson.score < 0.5)) {
       console.warn('reCAPTCHA failed', verifyJson);
-      return res.status(400).json({ error: 'reCAPTCHA 驗證失敗，請再試一次' });
+      return res.status(400).json({ error: 'reCAPTCHA 驗證失敗 (分數過低)，請再試一次' });
     }
 
     // 如果你使用 reCAPTCHA v3（有 score），你可以檢查 score >= 0.5 之類：

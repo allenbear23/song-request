@@ -103,9 +103,12 @@ function sendRequestFromInput() {
 
 // --- 點歌 API ---
 function sendRequest(url) {
-  // 觸發 Invisible reCAPTCHA
-  window.pendingCaptchaAction = { type: 'request', url: url };
-  grecaptcha.execute();
+  // 觸發 reCAPTCHA v3
+  grecaptcha.ready(function() {
+    grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'request'}).then(function(token) {
+      window.executeSendRequest(url, token);
+    });
+  });
 }
 
 window.executeSendRequest = function(url, token) {
@@ -129,9 +132,6 @@ window.executeSendRequest = function(url, token) {
     .then(r => r.json())
     .then(data => {
 
-      // 不論成功失敗，都 reset reCAPTCHA
-      grecaptcha.reset();
-
       if (data.ok) {
         showToast("點歌成功", data.title + " 已加入隊列");
         document.getElementById('urlInput').value = '';
@@ -147,9 +147,6 @@ window.executeSendRequest = function(url, token) {
     .catch(err => {
       console.error('request error', err);
       showToast("錯誤", "傳送失敗：" + err.message);
-
-      // 失敗也 reset
-      grecaptcha.reset();
     });
 }
 

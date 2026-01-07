@@ -28,7 +28,8 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <body>
   <!-- public/index.html (加入於 <head> 或 <body> 之前) -->
 <!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
-
+<!-- 改用 reCAPTCHA v3 -->
+<script src="https://www.google.com/recaptcha/api.js?render=YOUR_RECAPTCHA_V3_SITE_KEY"></script>
 <!-- 全域登入遮罩 (卡片) -->
 <div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;">
   <div style="background:#1f1f1f; padding:30px; border-radius:16px; text-align:center; box-shadow:0 4px 30px rgba(0,0,0,0.8); max-width:85%; width:300px; border:1px solid #333;">
@@ -63,12 +64,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" >
   <button onclick="searchYT()">搜尋</button>
   <div id="searchList"></div>
-  <div class="g-recaptcha"
-     data-sitekey="6LdVAxAsAAAAACKS0uVjLqmJS4FE7-qthguwBcYv"
-     data-size="invisible"
-     data-callback="onCaptchaSolved"></div>
-
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 
   <hr>
@@ -101,6 +96,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <script src="request.js"></script>
 <script>
   // --- LINE LIFF 設定 ---
+  const RECAPTCHA_SITE_KEY = '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs';
   // ⚠️ 請將此處替換為你在 LINE Developers 申請的 LIFF ID
   const LIFF_ID = '2008832076-eA3l2ogi'; 
   let currentLineProfile = null;
@@ -172,20 +168,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   // 啟動 LIFF
   initLiff();
 
-  // reCAPTCHA Callback
-  window.onCaptchaSolved = function(token) {
-    const action = window.pendingCaptchaAction;
-    if (!action) return;
-    
-    if (action.type === 'vote') {
-      executeVoteSkip(token);
-    } else if (action.type === 'request') {
-      if (window.executeSendRequest) {
-        window.executeSendRequest(action.url, token);
-      }
-    }
-    window.pendingCaptchaAction = null;
-  };
 
   // 投票切歌功能
   function voteSkip() {
@@ -196,9 +178,12 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
       return;
     }
     
-    // 觸發 Invisible reCAPTCHA
-    window.pendingCaptchaAction = { type: 'vote' };
-    grecaptcha.execute();
+    // 觸發 reCAPTCHA v3
+    grecaptcha.ready(function() {
+      grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'vote'}).then(function(token) {
+        executeVoteSkip(token);
+      });
+    });
   }
 
   function executeVoteSkip(captchaResponse) {
@@ -212,7 +197,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     })
       .then(r => r.json())
       .then(data => {
-        grecaptcha.reset(); // 重置驗證碼，準備下一次使用
         if (data.ok) {
           alert(data.message || '已投票');
           updateVoteStatus();
@@ -221,7 +205,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         }
       })
       .catch(() => {
-        grecaptcha.reset();
         alert('投票失敗，請稍後再試');
       });
   }

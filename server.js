@@ -58,6 +58,10 @@ let lastSkipMessage = null; // 儲存最新的管理員切歌訊息
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
 async function readData(key, defaultVal) {
   if (DataModel) {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn(`[DB] Not connected (state: ${mongoose.connection.readyState}). Skipping read for ${key}.`);
+      return defaultVal;
+    }
     try {
       const doc = await DataModel.findById(key);
       return doc ? doc.data : defaultVal;
@@ -85,6 +89,10 @@ async function readData(key, defaultVal) {
 
 async function writeData(key, data) {
   if (DataModel) {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn(`[DB] Not connected. Skipping write for ${key}.`);
+      return;
+    }
     try {
       await DataModel.findByIdAndUpdate(key, { _id: key, data: data }, { upsert: true });
     } catch (e) { console.error(`writeData(${key}) DB error:`, e); }
@@ -548,6 +556,9 @@ app.use((req, res, next) => {
 
 
 // health
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) => {
+  const dbStatus = (mongoose && mongoose.connection.readyState === 1) ? 'connected' : 'disconnected';
+  res.json({ ok: true, db: dbStatus });
+});
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -192,7 +192,12 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 <!-- 管理員切歌訊息顯示層 -->
 <div id="skipOverlay">
   <div class="stamp-container">
-    <h1 style="color:#ff4444; font-size:48px; margin-bottom:20px; text-shadow: 0 0 10px #ff0000; border: 4px solid #ff4444; padding: 10px 30px; border-radius: 10px; transform: rotate(-2deg); background: rgba(0,0,0,0.5);">🛑 管理員切歌</h1>
+    <h1 id="skipTitle" style="color:#ff4444; font-size:48px; margin-bottom:10px; text-shadow: 0 0 10px #ff0000; border: 4px solid #ff4444; padding: 10px 30px; border-radius: 10px; transform: rotate(-2deg); background: rgba(0,0,0,0.5);">🛑 管理員切歌</h1>
+    
+    <!-- 顯示點歌者與停權訊息 -->
+    <div id="skipRequester" style="font-size:28px; color:#ffeb3b; margin-bottom:5px; font-weight:bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8);"></div>
+    <div id="banMessage" style="font-size:20px; color:#aaa; margin-bottom:20px; display:none;">(點歌者已停權 5 分鐘)</div>
+
     <img id="skipImageDisplay" style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
     <div id="skipReasonDisplay" style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
   </div>
@@ -436,19 +441,46 @@ function checkSkipMessage() {
 
 function showSkipOverlay(msg) {
   const overlay = document.getElementById('skipOverlay');
-  document.getElementById('skipReasonDisplay').innerText = msg.reason || '（無原因）';
+  const titleEl = document.getElementById('skipTitle');
+  const reqEl = document.getElementById('skipRequester');
+  const banEl = document.getElementById('banMessage');
+  const reasonEl = document.getElementById('skipReasonDisplay');
   const imgEl = document.getElementById('skipImageDisplay');
   
-  if (msg.image) { imgEl.src = msg.image; imgEl.style.display = 'block'; }
-  else { imgEl.style.display = 'none'; }
+  // 判斷是投票切歌還是管理員切歌
+  if (msg.type === 'vote') {
+    titleEl.innerText = "🗳 投票通過切歌";
+    titleEl.style.borderColor = "#06c755";
+    titleEl.style.color = "#06c755";
+    reasonEl.innerText = `歌曲：${msg.title}`;
+    imgEl.style.display = 'none';
+  } else {
+    titleEl.innerText = "🛑 管理員切歌";
+    titleEl.style.borderColor = "#ff4444";
+    titleEl.style.color = "#ff4444";
+    reasonEl.innerText = msg.reason || '（無原因）';
+    if (msg.image) { imgEl.src = msg.image; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
+  }
+
+  // 顯示點歌者
+  if (msg.requester && msg.requester !== '未知') {
+    reqEl.innerText = `點歌者：${msg.requester}`;
+    const duration = msg.banDuration || 5;
+    banEl.innerText = `(點歌者已停權 ${duration} 分鐘)`;
+    banEl.style.display = 'block';
+  } else {
+    reqEl.innerText = '';
+    banEl.style.display = 'none';
+  }
   
   overlay.style.display = 'flex';
   
   // 播放提示音
   playVoteSound();
 
-  // 5 秒後自動消失
-  setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+  // 6 秒後自動消失
+  setTimeout(() => { overlay.style.display = 'none'; }, 6000);
 }
 
 // 每 2 秒檢查一次是否有新訊息

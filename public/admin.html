@@ -26,9 +26,15 @@ button:hover { background: #0056b3; }
 <div class="card">
   <h3>投票切歌設定</h3>
   <label>切歌門檻 (票數)</label>
-  <div style="display:flex; gap:10px;">
+  <div style="display:flex; gap:10px; margin-bottom:15px;">
     <input type="number" id="thresholdInput" min="1" value="3">
     <button onclick="saveThreshold()">儲存設定</button>
+  </div>
+
+  <label>切歌停權時間 (分鐘)</label>
+  <div style="display:flex; gap:10px;">
+    <input type="number" id="banDurationInput" min="1" value="5">
+    <button onclick="saveBanDuration()">儲存設定</button>
   </div>
   <div id="msg" class="msg"></div>
 </div>
@@ -65,6 +71,7 @@ button:hover { background: #0056b3; }
     .then(r => r.json())
     .then(data => {
       document.getElementById('thresholdInput').value = data.threshold;
+      if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
     });
 
   function saveThreshold() {
@@ -77,6 +84,21 @@ button:hover { background: #0056b3; }
     .then(r => r.json())
     .then(data => {
       if(data.ok) document.getElementById('msg').innerText = "✅ 設定已更新為 " + data.threshold + " 票";
+      else alert(data.error);
+    })
+    .catch(err => alert("儲存失敗"));
+  }
+
+  function saveBanDuration() {
+    const val = document.getElementById('banDurationInput').value;
+    fetch('/admin/ban-duration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banDuration: val })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.ok) document.getElementById('msg').innerText = "✅ 停權時間已更新為 " + data.banDuration + " 分鐘";
       else alert(data.error);
     })
     .catch(err => alert("儲存失敗"));

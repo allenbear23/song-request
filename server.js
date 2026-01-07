@@ -15,6 +15,7 @@ const YT_API_KEY = "AIzaSyBEa3LCMKLL8cBJW_l7TPlylbMyxNFDvD0";
 
 let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
 const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
+let BAN_DURATION = 5 * 60 * 1000; // 預設停權 5 分鐘
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
@@ -145,6 +146,15 @@ app.post('/request', async (req, res) => {
     if (!token) {
       return res.status(400).json({ error: 'reCAPTCHA token missing' });
     }
+    
+    // 檢查使用者是否被停權
+    if (user && user.userId) {
+      const users = readUsers();
+      if (users[user.userId] && users[user.userId].bannedUntil > Date.now()) {
+        const minLeft = Math.ceil((users[user.userId].bannedUntil - Date.now()) / 60000);
+        return res.status(403).json({ error: `您已被停權，請於 ${minLeft} 分鐘後再試` });
+      }
+    }
 
     // call Google verify API
     const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
@@ -197,7 +207,13 @@ app.post('/request', async (req, res) => {
       writeUsers(users);
     }
     
-    queue.push({ url: fullUrl, title: info.title, channel: info.channel, thumbnail: info.thumbnail });
+    queue.push({ 
+      url: fullUrl, 
+      title: info.title, 
+      channel: info.channel, 
+      thumbnail: info.thumbnail,
+      requester: user ? { id: user.userId, name: user.displayName } : null
+    });
     writeQueue(queue);
 
     console.log('Added to queue:', info.title);
@@ -277,6 +293,23 @@ app.post('/vote-skip', (req, res) => {
   item.votes = (item.votes || 0) + 1;
 
   if (item.votes >= VOTE_THRESHOLD) {
+    // 執行停權 (5分鐘)
+    if (item.requester && item.requester.id) {
+      const users = readUsers();
+      if (!users[item.requester.id]) users[item.requester.id] = {};
+      users[item.requester.id].bannedUntil = Date.now() + BAN_DURATION;
+      writeUsers(users);
+    }
+
+    // 設定切歌訊息供前端顯示
+    lastSkipMessage = {
+      type: 'vote',
+      title: item.title,
+      requester: item.requester ? item.requester.name : '未知',
+      banDuration: Math.ceil(BAN_DURATION / 60000),
+      timestamp: Date.now()
+    };
+
     q.shift(); // 移除目前歌曲
     writeQueue(q);
     return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
@@ -357,7 +390,7 @@ app.post('/playlist/clear', (req, res) => {
 
 // 取得設定 (公開)
 app.get('/settings', (req, res) => {
-  res.json({ threshold: VOTE_THRESHOLD, timeout: VOTE_TIMEOUT });
+  res.json({ threshold: VOTE_THRESHOLD, timeout: VOTE_TIMEOUT, banDuration: BAN_DURATION / 60000 });
 });
 
 // 修改門檻 (管理員)
@@ -366,6 +399,17 @@ app.post('/admin/threshold', protect, (req, res) => {
   if (val && val > 0) {
     VOTE_THRESHOLD = val;
     res.json({ ok: true, threshold: VOTE_THRESHOLD });
+  } else {
+    res.status(400).json({ error: "無效的數值" });
+  }
+});
+
+// 修改停權時間 (管理員)
+app.post('/admin/ban-duration', protect, (req, res) => {
+  const val = parseInt(req.body.banDuration);
+  if (val && val > 0) {
+    BAN_DURATION = val * 60 * 1000;
+    res.json({ ok: true, banDuration: val });
   } else {
     res.status(400).json({ error: "無效的數值" });
   }
@@ -394,15 +438,28 @@ app.post('/admin/skip', protect, (req, res) => {
   const q = readQueue();
   
   // 執行切歌邏輯
+  let skippedItem = null;
   if (q.length > 0) {
-    q.shift();
+    skippedItem = q.shift();
     writeQueue(q);
+
+    // 執行停權 (5分鐘)
+    if (skippedItem.requester && skippedItem.requester.id) {
+      const users = readUsers();
+      if (!users[skippedItem.requester.id]) users[skippedItem.requester.id] = {};
+      users[skippedItem.requester.id].bannedUntil = Date.now() + BAN_DURATION;
+      writeUsers(users);
+    }
   }
 
   // 紀錄訊息供前端顯示
   lastSkipMessage = {
+    type: 'admin',
     reason: reason || '',
     image: image || null,
+    title: skippedItem ? skippedItem.title : '',
+    requester: (skippedItem && skippedItem.requester) ? skippedItem.requester.name : '未知',
+    banDuration: Math.ceil(BAN_DURATION / 60000),
     timestamp: Date.now()
   };
 

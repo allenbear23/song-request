@@ -9,14 +9,30 @@ const fetch = require('node-fetch'); // node-fetch@2
 
 // --- MongoDB 設定 (用於資料持久化) ---
 let mongoose;
-try { mongoose = require('mongoose'); } catch (e) {}
+try { 
+  mongoose = require('mongoose'); 
+} catch (e) {
+  console.error("❌ 嚴重錯誤: 找不到 'mongoose' 套件。請確認已執行 'npm install mongoose'");
+}
+
 const MONGODB_URI = process.env.MONGODB_URI;
 let DataModel;
 
 if (mongoose && MONGODB_URI) {
-  mongoose.connect(MONGODB_URI).then(() => console.log('MongoDB connected')).catch(e => console.error('MongoDB error:', e));
+  console.log("正在嘗試連線至 MongoDB...");
+  mongoose.connect(MONGODB_URI)
+    .then(() => console.log('✅ MongoDB 連線成功！'))
+    .catch(e => {
+      console.error('❌ MongoDB 連線失敗:', e.message);
+      if (e.message.includes('bad auth')) console.error('👉 提示: 密碼錯誤或使用者名稱錯誤 (請檢查連線字串)');
+      if (e.message.includes('not authorized') || e.message.includes('buffering timed out')) console.error('👉 提示: IP 可能被擋，請檢查 Atlas Network Access 是否設為 0.0.0.0/0');
+    });
+    
   const DataSchema = new mongoose.Schema({ _id: String, data: mongoose.Schema.Types.Mixed }, { strict: false });
   DataModel = mongoose.model('Data', DataSchema);
+} else {
+  if (!mongoose) console.log('⚠️ MongoDB 未啟用: 尚未安裝 mongoose');
+  if (!MONGODB_URI) console.log('⚠️ MongoDB 未啟用: 未設定 MONGODB_URI 環境變數');
 }
 
 const app = express();
@@ -57,57 +73,52 @@ let lastSkipMessage = null; // 儲存最新的管理員切歌訊息
 
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
 async function readData(key, defaultVal) {
-  if (DataModel) {
-    if (mongoose.connection.readyState !== 1) {
-      console.warn(`[DB] Not connected (state: ${mongoose.connection.readyState}). Skipping read for ${key}.`);
-      return defaultVal;
-    }
+  // 優先嘗試 MongoDB (若已設定且連線正常)
+  if (DataModel && mongoose.connection.readyState === 1) {
     try {
       const doc = await DataModel.findById(key);
       return doc ? doc.data : defaultVal;
     } catch (e) {
       console.error(`readData(${key}) DB error:`, e);
-      return defaultVal;
+      // DB 讀取失敗，繼續往下執行檔案 fallback
     }
-  } else {
-    // 檔案模式 fallback
-    let fileName;
-    if (key === 'users') fileName = USERS_FILE;
-    else if (key === 'queue') fileName = 'requests.json';
-    else if (key === 'playlist') fileName = 'playlist.json';
-    else return defaultVal;
+  }
 
-    try {
-      if (!fs.existsSync(fileName)) return defaultVal;
-      const raw = await fs.promises.readFile(fileName, 'utf8');
-      return JSON.parse(raw || JSON.stringify(defaultVal));
-    } catch (e) {
-      return defaultVal;
-    }
+  // 檔案模式 fallback (當 DB 未設定、未連線或讀取失敗時)
+  let fileName;
+  if (key === 'users') fileName = USERS_FILE;
+  else if (key === 'queue') fileName = 'requests.json';
+  else if (key === 'playlist') fileName = 'playlist.json';
+  else return defaultVal;
+
+  try {
+    if (!fs.existsSync(fileName)) return defaultVal;
+    const raw = await fs.promises.readFile(fileName, 'utf8');
+    return JSON.parse(raw || JSON.stringify(defaultVal));
+  } catch (e) {
+    return defaultVal;
   }
 }
 
 async function writeData(key, data) {
-  if (DataModel) {
-    if (mongoose.connection.readyState !== 1) {
-      console.warn(`[DB] Not connected. Skipping write for ${key}.`);
-      return;
-    }
+  // 優先嘗試 MongoDB
+  if (DataModel && mongoose.connection.readyState === 1) {
     try {
       await DataModel.findByIdAndUpdate(key, { _id: key, data: data }, { upsert: true });
+      return; // DB 寫入成功則結束
     } catch (e) { console.error(`writeData(${key}) DB error:`, e); }
-  } else {
-    // 檔案模式 fallback
-    let fileName;
-    if (key === 'users') fileName = USERS_FILE;
-    else if (key === 'queue') fileName = 'requests.json';
-    else if (key === 'playlist') fileName = 'playlist.json';
-    else return;
-
-    try {
-      await fs.promises.writeFile(fileName, JSON.stringify(data, null, 2));
-    } catch (e) { console.error(`writeData(${key}) File error:`, e); }
   }
+
+  // 檔案模式 fallback
+  let fileName;
+  if (key === 'users') fileName = USERS_FILE;
+  else if (key === 'queue') fileName = 'requests.json';
+  else if (key === 'playlist') fileName = 'playlist.json';
+  else return;
+
+  try {
+    await fs.promises.writeFile(fileName, JSON.stringify(data, null, 2));
+  } catch (e) { console.error(`writeData(${key}) File error:`, e); }
 }
 
 // 為了相容舊程式碼的包裝 (改為 Async)
@@ -171,8 +182,6 @@ app.get('/search', async (req, res) => {
 });
 
 // Request (add to queue) — accepts either full URL or videoId via url param
-// Request (add to queue) — accepts either full URL or videoId via url param
-// server.js 內：在 /request 路由中，先做 reCAPTCHA 驗證
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdVAxAsAAAAABzsj87WM7MJBBTwLyXZmDCF6zvw';
 
 app.post('/request', async (req, res) => {

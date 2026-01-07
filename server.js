@@ -6,6 +6,19 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // node-fetch@2
+
+// --- MongoDB 設定 (用於資料持久化) ---
+let mongoose;
+try { mongoose = require('mongoose'); } catch (e) {}
+const MONGODB_URI = process.env.MONGODB_URI;
+let DataModel;
+
+if (mongoose && MONGODB_URI) {
+  mongoose.connect(MONGODB_URI).then(() => console.log('MongoDB connected')).catch(e => console.error('MongoDB error:', e));
+  const DataSchema = new mongoose.Schema({ _id: String, data: mongoose.Schema.Types.Mixed }, { strict: false });
+  DataModel = mongoose.model('Data', DataSchema);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -42,44 +55,58 @@ function protect(req, res, next) {
 
 let lastSkipMessage = null; // 儲存最新的管理員切歌訊息
 
-// helper: ensure requests.json exists (returns array)
-function readQueue() {
-  try {
-    if (!fs.existsSync('requests.json')) return [];
-    const raw = fs.readFileSync('requests.json', 'utf8');
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    console.error('readQueue error:', e);
-    return [];
+// --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
+async function readData(key, defaultVal) {
+  if (DataModel) {
+    try {
+      const doc = await DataModel.findById(key);
+      return doc ? doc.data : defaultVal;
+    } catch (e) {
+      console.error(`readData(${key}) DB error:`, e);
+      return defaultVal;
+    }
+  } else {
+    // 檔案模式 fallback
+    let fileName;
+    if (key === 'users') fileName = USERS_FILE;
+    else if (key === 'queue') fileName = 'requests.json';
+    else if (key === 'playlist') fileName = 'playlist.json';
+    else return defaultVal;
+
+    try {
+      if (!fs.existsSync(fileName)) return defaultVal;
+      const raw = await fs.promises.readFile(fileName, 'utf8');
+      return JSON.parse(raw || JSON.stringify(defaultVal));
+    } catch (e) {
+      return defaultVal;
+    }
   }
 }
 
-function writeQueue(q) {
-  try {
-    fs.writeFileSync('requests.json', JSON.stringify(q, null, 2));
-  } catch (e) {
-    console.error('writeQueue error:', e);
+async function writeData(key, data) {
+  if (DataModel) {
+    try {
+      await DataModel.findByIdAndUpdate(key, { _id: key, data: data }, { upsert: true });
+    } catch (e) { console.error(`writeData(${key}) DB error:`, e); }
+  } else {
+    // 檔案模式 fallback
+    let fileName;
+    if (key === 'users') fileName = USERS_FILE;
+    else if (key === 'queue') fileName = 'requests.json';
+    else if (key === 'playlist') fileName = 'playlist.json';
+    else return;
+
+    try {
+      await fs.promises.writeFile(fileName, JSON.stringify(data, null, 2));
+    } catch (e) { console.error(`writeData(${key}) File error:`, e); }
   }
 }
 
-function readUsers() {
-  try {
-    if (!fs.existsSync(USERS_FILE)) return {};
-    const raw = fs.readFileSync(USERS_FILE, 'utf8');
-    return JSON.parse(raw || '{}');
-  } catch (e) {
-    console.error('readUsers error:', e);
-    return {};
-  }
-}
-
-function writeUsers(data) {
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error('writeUsers error:', e);
-  }
-}
+// 為了相容舊程式碼的包裝 (改為 Async)
+const readQueue = () => readData('queue', []);
+const writeQueue = (q) => writeData('queue', q);
+const readUsers = () => readData('users', {});
+const writeUsers = (u) => writeData('users', u);
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -151,7 +178,7 @@ app.post('/request', async (req, res) => {
     
     // 檢查使用者是否被停權
     if (user && user.userId) {
-      const users = readUsers();
+      const users = await readUsers();
       if (users[user.userId] && users[user.userId].bannedUntil > Date.now()) {
         const minLeft = Math.ceil((users[user.userId].bannedUntil - Date.now()) / 60000);
         return res.status(403).json({ error: `您已被停權，請於 ${minLeft} 分鐘後再試` });
@@ -187,7 +214,7 @@ app.post('/request', async (req, res) => {
     }
     if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL or ID' });
 
-    const queue = readQueue();
+    const queue = await readQueue();
     const already = queue.some(item => extractVideoId(item.url) === videoId);
     if (already) {
       return res.status(400).json({ error: '此歌曲已在排隊中，請選擇其他歌曲' });
@@ -200,13 +227,13 @@ app.post('/request', async (req, res) => {
     
     // --- 記錄使用者點歌次數 ---
     if (user && user.userId) {
-      const users = readUsers();
+      const users = await readUsers();
       if (!users[user.userId]) users[user.userId] = { count: 0 };
       
       users[user.userId].name = user.displayName; // 更新最新暱稱
       users[user.userId].picture = user.pictureUrl; // 更新最新頭貼
       users[user.userId].count = (users[user.userId].count || 0) + 1;
-      writeUsers(users);
+      await writeUsers(users);
     }
     
     queue.push({ 
@@ -216,7 +243,7 @@ app.post('/request', async (req, res) => {
       thumbnail: info.thumbnail,
       requester: user ? { id: user.userId, name: user.displayName } : null
     });
-    writeQueue(queue);
+    await writeQueue(queue);
 
     console.log('Added to queue:', info.title);
     return res.json({ ok: true, title: info.title });
@@ -230,21 +257,21 @@ app.post('/request', async (req, res) => {
 
 
 // Get next (first) item
-app.get('/next', (req, res) => {
-  const q = readQueue();
+app.get('/next', async (req, res) => {
+  const q = await readQueue();
   res.json(q.length ? q[0] : { url: null, title: null, channel: null, thumbnail: null });
 });
 
 // Finish (pop first)
-app.post('/finish', (req, res) => {
-  const q = readQueue();
+app.post('/finish', async (req, res) => {
+  const q = await readQueue();
   if (q.length) q.shift();
-  writeQueue(q);
+  await writeQueue(q);
   res.json({ ok: true });
 });
 
 // 檢查投票是否過期 (Helper)
-function checkVoteExpiry(q) {
+async function checkVoteExpiry(q) {
   if (q.length > 0) {
     const item = q[0];
     if (item.votes && item.voteStartTime) {
@@ -254,19 +281,19 @@ function checkVoteExpiry(q) {
         item.votes = 0;
         item.votedIds = [];
         delete item.voteStartTime;
-        writeQueue(q);
+        await writeQueue(q);
       }
     }
   }
 }
 
 // 投票切歌 API
-app.post('/vote-skip', (req, res) => {
-  const q = readQueue();
+app.post('/vote-skip', async (req, res) => {
+  const q = await readQueue();
   if (q.length === 0) return res.status(400).json({ error: "目前沒有歌曲" });
 
   // 檢查是否過期
-  checkVoteExpiry(q);
+  await checkVoteExpiry(q);
 
   const item = q[0];
   
@@ -285,7 +312,7 @@ app.post('/vote-skip', (req, res) => {
   }
 
   // 檢查使用者是否被停權
-  const users = readUsers();
+  const users = await readUsers();
   if (users[voterId] && users[voterId].bannedUntil > Date.now()) {
     const minLeft = Math.ceil((users[voterId].bannedUntil - Date.now()) / 60000);
     return res.status(403).json({ error: `您已被停權，無法投票。請於 ${minLeft} 分鐘後再試` });
@@ -304,10 +331,10 @@ app.post('/vote-skip', (req, res) => {
   if (item.votes >= VOTE_THRESHOLD) {
     // 執行停權 (5分鐘)
     if (item.requester && item.requester.id) {
-      const users = readUsers();
+      const users = await readUsers();
       if (!users[item.requester.id]) users[item.requester.id] = {};
       users[item.requester.id].bannedUntil = Date.now() + BAN_DURATION;
-      writeUsers(users);
+      await writeUsers(users);
     }
 
     // 設定切歌訊息供前端顯示
@@ -320,24 +347,24 @@ app.post('/vote-skip', (req, res) => {
     };
 
     q.shift(); // 移除目前歌曲
-    writeQueue(q);
+    await writeQueue(q);
     return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
   }
 
-  writeQueue(q);
+  await writeQueue(q);
   res.json({ ok: true, message: "投票成功", votes: item.votes });
 });
 
 // Get full queue
-app.get('/queue', (req, res) => {
-  const q = readQueue();
-  checkVoteExpiry(q); // 讀取時順便檢查過期
+app.get('/queue', async (req, res) => {
+  const q = await readQueue();
+  await checkVoteExpiry(q); // 讀取時順便檢查過期
   res.json(q);
 });
 
 // 排行榜 API
-app.get('/leaderboard', (req, res) => {
-  const users = readUsers();
+app.get('/leaderboard', async (req, res) => {
+  const users = await readUsers();
   // 轉為陣列並排序
   const list = Object.values(users).map(u => ({
     name: u.name,
@@ -349,48 +376,46 @@ app.get('/leaderboard', (req, res) => {
 });
 
 // Delete by index
-app.post('/delete/:index', (req, res) => {
+app.post('/delete/:index', async (req, res) => {
   const idx = parseInt(req.params.index);
-  const q = readQueue();
+  const q = await readQueue();
   if (!isNaN(idx) && idx >= 0 && idx < q.length) {
     q.splice(idx, 1);
-    writeQueue(q);
+    await writeQueue(q);
   }
   res.json({ ok: true });
 });
-app.get('/playlist', (req, res) => {
-  try {
-    if (!fs.existsSync('playlist.json')) return res.json([]);
-    const raw = fs.readFileSync('playlist.json', 'utf8') || '[]';
-    res.json(JSON.parse(raw));
-  } catch (err) {
-    res.status(500).json({ error: "read playlist error" });
-  }
+
+app.get('/playlist', async (req, res) => {
+  const list = await readData('playlist', []);
+  res.json(list);
 });
-app.post('/playlist/save', (req, res) => {
+
+app.post('/playlist/save', async (req, res) => {
   try {
-    const q = readQueue();
-    fs.writeFileSync('playlist.json', JSON.stringify(q, null, 2));
+    const q = await readQueue();
+    await writeData('playlist', q);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "save playlist error" });
   }
 });
-app.post('/playlist/load', (req, res) => {
+
+app.post('/playlist/load', async (req, res) => {
   try {
-    if (!fs.existsSync('playlist.json')) return res.json({ ok: false });
-
-    const playlist = JSON.parse(fs.readFileSync('playlist.json'));
-    writeQueue(playlist);
-
+    const playlist = await readData('playlist', []);
+    if (!playlist || playlist.length === 0) return res.json({ ok: false });
+    
+    await writeQueue(playlist);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "load playlist error" });
   }
 });
-app.post('/playlist/clear', (req, res) => {
+
+app.post('/playlist/clear', async (req, res) => {
   try {
-    fs.writeFileSync('playlist.json', '[]');
+    await writeData('playlist', []);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "clear playlist error" });
@@ -425,16 +450,16 @@ app.post('/admin/ban-duration', protect, (req, res) => {
 });
 
 // 更改順序 (管理員)
-app.post('/admin/reorder', protect, (req, res) => {
+app.post('/admin/reorder', protect, async (req, res) => {
   const { oldIndex, newIndex } = req.body;
-  const q = readQueue();
+  const q = await readQueue();
   if (
     typeof oldIndex === 'number' && oldIndex >= 0 && oldIndex < q.length &&
     typeof newIndex === 'number' && newIndex >= 0 && newIndex < q.length
   ) {
     const [item] = q.splice(oldIndex, 1);
     q.splice(newIndex, 0, item);
-    writeQueue(q);
+    await writeQueue(q);
     res.json({ ok: true });
   } else {
     res.status(400).json({ error: "無效的索引" });
@@ -442,22 +467,22 @@ app.post('/admin/reorder', protect, (req, res) => {
 });
 
 // 管理員強制切歌 (帶原因與圖片)
-app.post('/admin/skip', protect, (req, res) => {
+app.post('/admin/skip', protect, async (req, res) => {
   const { reason, image } = req.body;
-  const q = readQueue();
+  const q = await readQueue();
   
   // 執行切歌邏輯
   let skippedItem = null;
   if (q.length > 0) {
     skippedItem = q.shift();
-    writeQueue(q);
+    await writeQueue(q);
 
     // 執行停權 (5分鐘)
     if (skippedItem.requester && skippedItem.requester.id) {
-      const users = readUsers();
+      const users = await readUsers();
       if (!users[skippedItem.requester.id]) users[skippedItem.requester.id] = {};
       users[skippedItem.requester.id].bannedUntil = Date.now() + BAN_DURATION;
-      writeUsers(users);
+      await writeUsers(users);
     }
   }
 
@@ -476,8 +501,8 @@ app.post('/admin/skip', protect, (req, res) => {
 });
 
 // 取得停權名單 (管理員)
-app.get('/admin/banned-users', protect, (req, res) => {
-  const users = readUsers();
+app.get('/admin/banned-users', protect, async (req, res) => {
+  const users = await readUsers();
   const now = Date.now();
   const list = [];
   
@@ -497,13 +522,13 @@ app.get('/admin/banned-users', protect, (req, res) => {
 });
 
 // 解除停權 (管理員)
-app.post('/admin/unban', protect, (req, res) => {
+app.post('/admin/unban', protect, async (req, res) => {
   const { userId } = req.body;
-  const users = readUsers();
+  const users = await readUsers();
   
   if (users[userId]) {
     delete users[userId].bannedUntil;
-    writeUsers(users);
+    await writeUsers(users);
     res.json({ ok: true });
   } else {
     res.status(404).json({ error: "找不到使用者" });
@@ -520,8 +545,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-app.use(express.static(__dirname));
 
 
 // health

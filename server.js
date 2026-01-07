@@ -35,6 +35,7 @@ let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
 const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
 let BAN_DURATION = 5 * 60 * 1000; // 預設停權 5 分鐘
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
+const BANNED_WORDS_FILE = 'banned_words.json'; // 違禁詞資料檔
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -77,6 +78,7 @@ async function readData(key, defaultVal) {
   if (key === 'users') fileName = USERS_FILE;
   else if (key === 'queue') fileName = 'requests.json';
   else if (key === 'playlist') fileName = 'playlist.json';
+  else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
   else return defaultVal;
 
   try {
@@ -102,6 +104,7 @@ async function writeData(key, data) {
   if (key === 'users') fileName = USERS_FILE;
   else if (key === 'queue') fileName = 'requests.json';
   else if (key === 'playlist') fileName = 'playlist.json';
+  else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
   else return;
 
   try {
@@ -114,6 +117,8 @@ const readQueue = () => readData('queue', []);
 const writeQueue = (q) => writeData('queue', q);
 const readUsers = () => readData('users', {});
 const writeUsers = (u) => writeData('users', u);
+const readBannedWords = () => readData('bannedWords', []);
+const writeBannedWords = (w) => writeData('bannedWords', w);
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -227,6 +232,14 @@ app.post('/request', async (req, res) => {
 
     const info = await fetchVideoInfo(videoId);
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
+
+    // 檢查違禁詞
+    const bannedWords = await readBannedWords();
+    for (const word of bannedWords) {
+      if (info.title.includes(word)) {
+        return res.status(400).json({ error: `標題包含違禁詞「${word}」，無法點歌` });
+      }
+    }
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
     
@@ -539,6 +552,33 @@ app.post('/admin/unban', protect, async (req, res) => {
     res.status(404).json({ error: "找不到使用者" });
   }
 });
+
+// --- 違禁詞管理 API ---
+app.get('/admin/banned-words', protect, async (req, res) => {
+  const words = await readBannedWords();
+  res.json(words);
+});
+
+app.post('/admin/banned-words/add', protect, async (req, res) => {
+  const { word } = req.body;
+  if (!word || !word.trim()) return res.status(400).json({ error: "請輸入違禁詞" });
+  
+  const words = await readBannedWords();
+  if (!words.includes(word)) {
+    words.push(word);
+    await writeBannedWords(words);
+  }
+  res.json({ ok: true });
+});
+
+app.post('/admin/banned-words/remove', protect, async (req, res) => {
+  const { word } = req.body;
+  const words = await readBannedWords();
+  const newWords = words.filter(w => w !== word);
+  await writeBannedWords(newWords);
+  res.json({ ok: true });
+});
+
 
 // 取得最新的切歌訊息
 app.get('/skip-message', (req, res) => res.json(lastSkipMessage || {}));

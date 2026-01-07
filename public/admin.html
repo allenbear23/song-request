@@ -58,6 +58,15 @@ button:hover { background: #0056b3; }
 </div>
 
 <div class="card">
+  <h3>🚫 違禁詞管理 (標題過濾)</h3>
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <input type="text" id="bannedWordInput" placeholder="輸入違禁詞..." style="flex:1;">
+    <button onclick="addBannedWord()">新增</button>
+  </div>
+  <div id="bannedWordsList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+</div>
+
+<div class="card">
   <h3>🚫 停權名單管理</h3>
   <div style="margin-bottom:10px;">
     <button onclick="refreshBannedList()">🔄 重新整理名單</button>
@@ -245,9 +254,54 @@ button:hover { background: #0056b3; }
     fetch('/admin/unban', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId }) }).then(() => { alert('已解禁'); refreshBannedList(); });
   }
 
+  // --- 違禁詞管理功能 ---
+  function refreshBannedWords() {
+    fetch('/admin/banned-words')
+      .then(r => r.json())
+      .then(words => {
+        const div = document.getElementById('bannedWordsList');
+        div.innerHTML = '';
+        if (words.length === 0) {
+          div.innerHTML = '<span style="color:#777;">無違禁詞</span>';
+          return;
+        }
+        words.forEach(w => {
+          const tag = document.createElement('span');
+          tag.style.cssText = 'background:#333; padding:4px 8px; border-radius:4px; display:flex; align-items:center; border:1px solid #555;';
+          tag.innerHTML = `${w} <span onclick="removeBannedWord('${w}')" style="margin-left:6px; cursor:pointer; color:#ff4444; font-weight:bold;">&times;</span>`;
+          div.appendChild(tag);
+        });
+      });
+  }
+
+  function addBannedWord() {
+    const input = document.getElementById('bannedWordInput');
+    const word = input.value.trim();
+    if (!word) return;
+    
+    fetch('/admin/banned-words/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word })
+    }).then(() => {
+      input.value = '';
+      refreshBannedWords();
+    });
+  }
+
+  function removeBannedWord(word) {
+    if(!confirm(`確定要移除違禁詞 "${word}" 嗎？`)) return;
+    fetch('/admin/banned-words/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word })
+    }).then(refreshBannedWords);
+  }
+
   // 初始載入
   refreshQueue();
   refreshBannedList();
+  refreshBannedWords();
 </script>
 
 </body>

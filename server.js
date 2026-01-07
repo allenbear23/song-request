@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ---------- 請把你的 API key 填在這裡 ----------
-const YT_API_KEY = "AIzaSyDtB9P9GDhxArmyrVNtt_7clfZM-KYq25Q";
+const YT_API_KEY = process.env.YT_API_KEY || "AIzaSyC665Opql5KG7wx87YOYQ3OlH9hx5JqGZ0";
 // ------------------------------------------------
 
 let VOTE_THRESHOLD = 3;       // 預設 3 票切歌

@@ -43,7 +43,6 @@
 /* 深黑 YouTube 主題風 */
 body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-family:Arial; }
 #player-container { flex:3; position:relative; background:#0b0b0b; display:flex; align-items:center; justify-content:center; }
-#skipBtn { position:absolute; top:18px; right:18px; z-index:20; background:#ff4444; border:none; padding:10px 14px; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.6); }
 #sidebar { flex:1.05; background:#111; padding:18px; overflow-y:auto; border-left: 1px solid #222; }
 .header { font-size:18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
 .video-card { display:flex; background:#141414; padding:10px; border-radius:10px; margin-bottom:12px; align-items:center; }
@@ -159,7 +158,6 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 </div>
 
 <div id="player-container">
-  <button id="skipBtn" onclick="skipSong()">⏭ 跳過目前這首</button>
   <div id="player"></div>
 </div>
 
@@ -341,7 +339,6 @@ function refreshQueueSidebar() {
           ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold;">🗳 ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
         </div>
         <div class="controls">
-          ${idx !== 0 ? `<button class="del-btn" onclick="deleteSong(${idx})">刪除</button>` : ''}
         </div>
       `;
       box.appendChild(div);

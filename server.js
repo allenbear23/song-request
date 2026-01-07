@@ -120,11 +120,6 @@ app.get('/search', async (req, res) => {
     const r = await fetch(url);
     const data = await r.json();
 
-    // 增加錯誤檢查：如果 API 回傳錯誤，印出詳細訊息
-    if (data.error) {
-      console.error('YouTube API Error:', JSON.stringify(data.error, null, 2));
-      return res.json([]);
-    }
     if (!data.items) return res.json([]);
 
     const results = data.items.map(it => ({

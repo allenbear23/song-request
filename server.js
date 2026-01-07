@@ -282,6 +282,13 @@ app.post('/vote-skip', (req, res) => {
     voterId = userIp;
   }
 
+  // 檢查使用者是否被停權
+  const users = readUsers();
+  if (users[voterId] && users[voterId].bannedUntil > Date.now()) {
+    const minLeft = Math.ceil((users[voterId].bannedUntil - Date.now()) / 60000);
+    return res.status(403).json({ error: `您已被停權，無法投票。請於 ${minLeft} 分鐘後再試` });
+  }
+
   if (item.votedIds.includes(voterId)) {
     return res.status(400).json({ error: "您已經投過票了" });
   }
@@ -464,6 +471,41 @@ app.post('/admin/skip', protect, (req, res) => {
   };
 
   res.json({ ok: true });
+});
+
+// 取得停權名單 (管理員)
+app.get('/admin/banned-users', protect, (req, res) => {
+  const users = readUsers();
+  const now = Date.now();
+  const list = [];
+  
+  Object.keys(users).forEach(userId => {
+    const u = users[userId];
+    if (u.bannedUntil && u.bannedUntil > now) {
+      list.push({
+        id: userId,
+        name: u.name,
+        picture: u.picture,
+        bannedUntil: u.bannedUntil
+      });
+    }
+  });
+  
+  res.json(list);
+});
+
+// 解除停權 (管理員)
+app.post('/admin/unban', protect, (req, res) => {
+  const { userId } = req.body;
+  const users = readUsers();
+  
+  if (users[userId]) {
+    delete users[userId].bannedUntil;
+    writeUsers(users);
+    res.json({ ok: true });
+  } else {
+    res.status(404).json({ error: "找不到使用者" });
+  }
 });
 
 // 取得最新的切歌訊息

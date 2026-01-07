@@ -58,6 +58,14 @@ button:hover { background: #0056b3; }
 </div>
 
 <div class="card">
+  <h3>🚫 停權名單管理</h3>
+  <div style="margin-bottom:10px;">
+    <button onclick="refreshBannedList()">🔄 重新整理名單</button>
+  </div>
+  <div id="bannedList"></div>
+</div>
+
+<div class="card">
   <h3>其他功能</h3>
   <p>
     <a href="/display.html" target="_blank" style="color:#4da3ff">開啟播放頁面</a> | 
@@ -197,8 +205,49 @@ button:hover { background: #0056b3; }
     fetch('/admin/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);
   }
 
+  // --- 停權管理功能 ---
+  function refreshBannedList() {
+    const listDiv = document.getElementById('bannedList');
+    listDiv.innerHTML = '載入中...';
+    
+    fetch('/admin/banned-users')
+      .then(r => r.json())
+      .then(list => {
+        listDiv.innerHTML = '';
+        if (list.length === 0) {
+          listDiv.innerHTML = '<div style="color:#777; padding:10px;">目前沒有被停權的使用者</div>';
+          return;
+        }
+        
+        list.forEach(u => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #333; background:#1a1a1a; margin-bottom:5px; border-radius:4px;';
+          
+          const timeLeft = Math.ceil((u.bannedUntil - Date.now()) / 60000);
+          
+          row.innerHTML = `
+            <div style="display:flex; align-items:center;">
+              <img src="${u.picture || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; border-radius:50%; margin-right:10px; object-fit:cover;">
+              <div>
+                <div style="font-weight:bold; color:#fff;">${u.name || '未知'}</div>
+                <div style="font-size:12px; color:#ff4444;">剩餘 ${timeLeft} 分鐘</div>
+              </div>
+            </div>
+            <button onclick="unbanUser('${u.id}')" style="background:#28a745; padding:6px 12px; font-size:13px;">🔓 解禁</button>
+          `;
+          listDiv.appendChild(row);
+        });
+      });
+  }
+
+  function unbanUser(userId) {
+    if(!confirm('確定要解除此人的停權嗎？')) return;
+    fetch('/admin/unban', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId }) }).then(() => { alert('已解禁'); refreshBannedList(); });
+  }
+
   // 初始載入
   refreshQueue();
+  refreshBannedList();
 </script>
 
 </body>

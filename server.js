@@ -7,32 +7,21 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // node-fetch@2
 
-// --- MongoDB 設定 (用於資料持久化) ---
-let mongoose;
-try { 
-  mongoose = require('mongoose'); 
-} catch (e) {
-  console.error("❌ 嚴重錯誤: 找不到 'mongoose' 套件。請確認已執行 'npm install mongoose'");
-}
+// --- Redis 設定 (用於資料持久化) ---
+let redis;
+const REDIS_URL = process.env.REDIS_URL;
 
-const MONGODB_URI = process.env.MONGODB_URI;
-let DataModel;
-
-if (mongoose && MONGODB_URI) {
-  console.log("正在嘗試連線至 MongoDB...");
-  mongoose.connect(MONGODB_URI)
-    .then(() => console.log('✅ MongoDB 連線成功！'))
-    .catch(e => {
-      console.error('❌ MongoDB 連線失敗:', e.message);
-      if (e.message.includes('bad auth')) console.error('👉 提示: 密碼錯誤或使用者名稱錯誤 (請檢查連線字串)');
-      if (e.message.includes('not authorized') || e.message.includes('buffering timed out')) console.error('👉 提示: IP 可能被擋，請檢查 Atlas Network Access 是否設為 0.0.0.0/0');
-    });
-    
-  const DataSchema = new mongoose.Schema({ _id: String, data: mongoose.Schema.Types.Mixed }, { strict: false });
-  DataModel = mongoose.model('Data', DataSchema);
+if (REDIS_URL) {
+  try {
+    const Redis = require('ioredis');
+    redis = new Redis(REDIS_URL);
+    redis.on('connect', () => console.log('✅ Redis 連線成功！'));
+    redis.on('error', (err) => console.error('❌ Redis 連線錯誤:', err));
+  } catch (e) {
+    console.error("❌ 找不到 'ioredis' 套件。請執行 'npm install ioredis'");
+  }
 } else {
-  if (!mongoose) console.log('⚠️ MongoDB 未啟用: 尚未安裝 mongoose');
-  if (!MONGODB_URI) console.log('⚠️ MongoDB 未啟用: 未設定 MONGODB_URI 環境變數');
+  console.log('⚠️ Redis 未啟用: 未設定 REDIS_URL 環境變數 (將使用本地檔案)');
 }
 
 const app = express();
@@ -73,14 +62,13 @@ let lastSkipMessage = null; // 儲存最新的管理員切歌訊息
 
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
 async function readData(key, defaultVal) {
-  // 優先嘗試 MongoDB (若已設定且連線正常)
-  if (DataModel && mongoose.connection.readyState === 1) {
+  // 優先嘗試 Redis
+  if (redis && redis.status === 'ready') {
     try {
-      const doc = await DataModel.findById(key);
-      return doc ? doc.data : defaultVal;
+      const raw = await redis.get(key);
+      return raw ? JSON.parse(raw) : defaultVal;
     } catch (e) {
-      console.error(`readData(${key}) DB error:`, e);
-      // DB 讀取失敗，繼續往下執行檔案 fallback
+      console.error(`readData(${key}) Redis error:`, e);
     }
   }
 
@@ -101,12 +89,12 @@ async function readData(key, defaultVal) {
 }
 
 async function writeData(key, data) {
-  // 優先嘗試 MongoDB
-  if (DataModel && mongoose.connection.readyState === 1) {
+  // 優先嘗試 Redis
+  if (redis && redis.status === 'ready') {
     try {
-      await DataModel.findByIdAndUpdate(key, { _id: key, data: data }, { upsert: true });
-      return; // DB 寫入成功則結束
-    } catch (e) { console.error(`writeData(${key}) DB error:`, e); }
+      await redis.set(key, JSON.stringify(data));
+      return;
+    } catch (e) { console.error(`writeData(${key}) Redis error:`, e); }
   }
 
   // 檔案模式 fallback
@@ -566,7 +554,7 @@ app.use((req, res, next) => {
 
 // health
 app.get('/health', (req, res) => {
-  const dbStatus = (mongoose && mongoose.connection.readyState === 1) ? 'connected' : 'disconnected';
+  const dbStatus = (redis && redis.status === 'ready') ? 'connected' : 'disconnected';
   res.json({ ok: true, db: dbStatus });
 });
 

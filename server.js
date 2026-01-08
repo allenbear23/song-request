@@ -274,6 +274,12 @@ app.post('/request', async (req, res) => {
       thumbnail: info.thumbnail,
       requester: user ? { id: user.userId, name: user.displayName } : null
     });
+
+    // 若目前播放的是系統自動推薦歌曲，且有新點歌，則移除自動推薦歌曲 (立即切歌)
+    if (queue.length > 1 && queue[0].requester && queue[0].requester.name === '系統') {
+      queue.shift();
+    }
+
     await writeQueue(queue);
 
     console.log('Added to queue:', info.title);
@@ -287,9 +293,41 @@ app.post('/request', async (req, res) => {
 
 
 
+// 自動加入推薦歌曲 (Helper)
+async function autoAddSong(q) {
+  try {
+    const songs = await readSongs();
+    const ids = Object.keys(songs);
+    if (ids.length === 0) return;
+
+    // 隨機挑選一首
+    const rId = ids[Math.floor(Math.random() * ids.length)];
+    const s = songs[rId];
+
+    const newItem = {
+      url: 'https://www.youtube.com/watch?v=' + rId,
+      title: s.title,
+      channel: "系統自動推薦",
+      thumbnail: s.thumbnail,
+      requester: { name: "系統" },
+      votes: 0,
+      votedIds: []
+    };
+    
+    q.push(newItem);
+    await writeQueue(q);
+    console.log('Auto-queued:', s.title);
+  } catch (e) {
+    console.error('Auto queue error:', e);
+  }
+}
+
 // Get next (first) item
 app.get('/next', async (req, res) => {
   const q = await readQueue();
+  if (q.length === 0) {
+    await autoAddSong(q);
+  }
   res.json(q.length ? q[0] : { url: null, title: null, channel: null, thumbnail: null });
 });
 

@@ -44,9 +44,15 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <!-- 排行榜遮罩 -->
 <div id="leaderboardOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
   <div style="background:#1f1f1f; width:90%; max-width:360px; max-height:80%; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.8); border:1px solid #333; overflow:hidden;">
-    <div style="padding:15px 20px; background:#252525; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
-      <h3 style="margin:0; color:#ffeb3b; font-size:18px;">🏆 點歌風雲榜</h3>
-      <button onclick="closeLeaderboard()" style="background:none; border:none; color:#aaa; font-size:24px; padding:0; width:auto; line-height:1; cursor:pointer;">&times;</button>
+    <div style="padding:15px 20px; background:#252525; border-bottom:1px solid #333; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:10px;">
+        <h3 style="margin:0; color:#ffeb3b; font-size:18px;">🏆 排行榜</h3>
+        <button onclick="closeLeaderboard()" style="background:none; border:none; color:#aaa; font-size:24px; padding:0; width:auto; line-height:1; cursor:pointer;">&times;</button>
+      </div>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button onclick="switchLeaderboard('users')" id="tab-users" style="flex:1; padding:8px; background:#444; border:none; color:#fff; border-radius:4px; font-size:14px; font-weight:bold;">點歌達人</button>
+        <button onclick="switchLeaderboard('songs')" id="tab-songs" style="flex:1; padding:8px; background:#222; border:1px solid #444; color:#aaa; border-radius:4px; font-size:14px;">熱門歌曲</button>
+      </div>
     </div>
     <div id="leaderboardList" style="flex:1; overflow-y:auto; padding:0 15px;">
       <!-- JS 填入內容 -->
@@ -227,14 +233,33 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   updateVoteStatus();
 
   // --- 排行榜功能 ---
+  let currentLeaderboardTab = 'users';
+
   function showLeaderboard() {
     const overlay = document.getElementById('leaderboardOverlay');
     overlay.style.display = 'flex';
-    
+    switchLeaderboard(currentLeaderboardTab);
+  }
+
+  function switchLeaderboard(type) {
+    currentLeaderboardTab = type;
     const list = document.getElementById('leaderboardList');
     list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">載入中...</div>';
+    
+    // Update tabs UI
+    const tabUsers = document.getElementById('tab-users');
+    const tabSongs = document.getElementById('tab-songs');
+    if (type === 'users') {
+      tabUsers.style.background = '#444'; tabUsers.style.color = '#fff'; tabUsers.style.border = 'none'; tabUsers.style.fontWeight = 'bold';
+      tabSongs.style.background = '#222'; tabSongs.style.color = '#aaa'; tabSongs.style.border = '1px solid #444'; tabSongs.style.fontWeight = 'normal';
+    } else {
+      tabSongs.style.background = '#444'; tabSongs.style.color = '#fff'; tabSongs.style.border = 'none'; tabSongs.style.fontWeight = 'bold';
+      tabUsers.style.background = '#222'; tabUsers.style.color = '#aaa'; tabUsers.style.border = '1px solid #444'; tabUsers.style.fontWeight = 'normal';
+    }
 
-    fetch('/leaderboard')
+    const endpoint = type === 'users' ? '/leaderboard' : '/leaderboard/songs';
+
+    fetch(endpoint)
       .then(r => r.json())
       .then(data => {
         list.innerHTML = '';
@@ -253,20 +278,32 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
           else if (idx === 1) { rankColor = '#c0c0c0'; rankIcon = '🥈'; }
           else if (idx === 2) { rankColor = '#cd7f32'; rankIcon = '🥉'; }
 
-          row.innerHTML = `
-            <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
-            <img src="${user.picture || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; margin:0 10px; object-fit:cover; background:#333;">
-            <div style="flex:1; overflow:hidden;">
-              <div style="color:#fff; font-size:14px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user.name || '未知'}</div>
-            </div>
-            <div style="color:#06c755; font-weight:bold; font-size:14px;">${user.count} 首</div>
-          `;
+          if (type === 'users') {
+            row.innerHTML = `
+              <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
+              <img src="${user.picture || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; margin:0 10px; object-fit:cover; background:#333;">
+              <div style="flex:1; overflow:hidden;">
+                <div style="color:#fff; font-size:14px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user.name || '未知'}</div>
+                <div style="color:#aaa; font-size:11px; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user.lastSong ? '🎵 ' + user.lastSong : ''}</div>
+              </div>
+              <div style="color:#06c755; font-weight:bold; font-size:14px;">${user.count} 首</div>
+            `;
+          } else {
+            row.innerHTML = `
+              <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
+              <img src="${user.thumbnail || 'https://via.placeholder.com/40'}" style="width:50px; height:28px; border-radius:4px; margin:0 10px; object-fit:cover; background:#333;">
+              <div style="flex:1; overflow:hidden;">
+                <div style="color:#fff; font-size:13px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user.title || '未知'}</div>
+              </div>
+              <div style="color:#ff4444; font-weight:bold; font-size:14px;">${user.count} 次</div>
+            `;
+          }
           list.appendChild(row);
         });
       })
       .catch(err => {
         console.error(err);
-        list.innerHTML = '<div style="text-align:center; color:#ff4444; padding:20px;">載入失敗<br><span style="font-size:12px; color:#666;">(請確認後端 /leaderboard API 已實作)</span></div>';
+        list.innerHTML = '<div style="text-align:center; color:#ff4444; padding:20px;">載入失敗</div>';
       });
   }
 

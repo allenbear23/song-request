@@ -36,6 +36,7 @@ const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
 let BAN_DURATION = 5 * 60 * 1000; // 預設停權 5 分鐘
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
 const BANNED_WORDS_FILE = 'banned_words.json'; // 違禁詞資料檔
+const SONGS_FILE = 'songs.json'; // 歌曲統計資料檔
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -79,6 +80,7 @@ async function readData(key, defaultVal) {
   else if (key === 'queue') fileName = 'requests.json';
   else if (key === 'playlist') fileName = 'playlist.json';
   else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
+  else if (key === 'songs') fileName = SONGS_FILE;
   else return defaultVal;
 
   try {
@@ -105,6 +107,7 @@ async function writeData(key, data) {
   else if (key === 'queue') fileName = 'requests.json';
   else if (key === 'playlist') fileName = 'playlist.json';
   else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
+  else if (key === 'songs') fileName = SONGS_FILE;
   else return;
 
   try {
@@ -119,6 +122,8 @@ const readUsers = () => readData('users', {});
 const writeUsers = (u) => writeData('users', u);
 const readBannedWords = () => readData('bannedWords', []);
 const writeBannedWords = (w) => writeData('bannedWords', w);
+const readSongs = () => readData('songs', {});
+const writeSongs = (s) => writeData('songs', s);
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -240,6 +245,14 @@ app.post('/request', async (req, res) => {
         return res.status(400).json({ error: `標題包含違禁詞「${word}」，無法點歌` });
       }
     }
+
+    // --- 記錄歌曲點播次數 ---
+    const songs = await readSongs();
+    if (!songs[videoId]) songs[videoId] = { count: 0 };
+    songs[videoId].title = info.title;
+    songs[videoId].thumbnail = info.thumbnail;
+    songs[videoId].count = (songs[videoId].count || 0) + 1;
+    await writeSongs(songs);
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
     
@@ -391,6 +404,18 @@ app.get('/leaderboard', async (req, res) => {
   }));
   list.sort((a, b) => b.count - a.count); // 由大到小排序
   res.json(list.slice(0, 20)); // 只回傳前 20 名
+});
+
+// 歌曲排行榜 API (Songs)
+app.get('/leaderboard/songs', async (req, res) => {
+  const songs = await readSongs();
+  const list = Object.values(songs).map(s => ({
+    title: s.title,
+    thumbnail: s.thumbnail,
+    count: s.count
+  }));
+  list.sort((a, b) => b.count - a.count);
+  res.json(list.slice(0, 20));
 });
 
 // Delete by index

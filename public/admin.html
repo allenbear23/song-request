@@ -36,6 +36,13 @@ button:hover { background: #0056b3; }
     <input type="number" id="banDurationInput" min="1" value="5">
     <button onclick="saveBanDuration()">儲存設定</button>
   </div>
+
+  <label>自動推薦歌曲</label>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <input type="checkbox" id="autoQueueInput" style="width:20px; height:20px; margin:0;">
+    <span style="font-size:14px; color:#ccc;">啟用 (當佇列為空時自動加入熱門歌曲)</span>
+    <button onclick="saveAutoQueue()">儲存設定</button>
+  </div>
   <div id="msg" class="msg"></div>
 </div>
 
@@ -89,6 +96,7 @@ button:hover { background: #0056b3; }
     .then(data => {
       document.getElementById('thresholdInput').value = data.threshold;
       if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
+      if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
     });
 
   function saveThreshold() {
@@ -116,6 +124,21 @@ button:hover { background: #0056b3; }
     .then(r => r.json())
     .then(data => {
       if(data.ok) document.getElementById('msg').innerText = "✅ 停權時間已更新為 " + data.banDuration + " 分鐘";
+      else alert(data.error);
+    })
+    .catch(err => alert("儲存失敗"));
+  }
+
+  function saveAutoQueue() {
+    const enabled = document.getElementById('autoQueueInput').checked;
+    fetch('/admin/auto-queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.ok) document.getElementById('msg').innerText = "✅ 自動推薦已" + (data.autoQueue ? "啟用" : "關閉");
       else alert(data.error);
     })
     .catch(err => alert("儲存失敗"));

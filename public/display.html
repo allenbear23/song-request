@@ -161,7 +161,8 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 <div id="startOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;color:#fff;">
   <div style="font-size:40px;">🔊</div>
   <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
-  <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
+  <p style="color:#aaa;">點擊以啟用音效與<b>即時燈光同步</b></p>
+  <p style="color:#ffeb3b; font-size:14px; margin-top:10px;">(請在彈出視窗選擇<b>「目前分頁」</b>並勾選<b>「分享音訊」</b>以獲得最佳效果)</p>
 </div>
 
 <!-- 舞台燈光層 -->
@@ -220,7 +221,7 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
 
 // --- 音效引擎 (Web Audio API) ---
-let audioCtx, gainNode;
+let audioCtx, gainNode, analyser, dataArray;
 
 function initAudio() {
   const audio = document.getElementById('voteSound');
@@ -244,6 +245,31 @@ function initAudio() {
   // 2. 確保 Context 處於運作狀態
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume();
+  }
+}
+
+async function setupVisualizer() {
+  try {
+    // 改用 getDisplayMedia 直接讀取分頁音訊 (無雜音、高品質)
+    // 注意：這會跳出螢幕分享視窗，必須選擇「目前分頁」並勾選「分享音訊」
+    const stream = await navigator.mediaDevices.getDisplayMedia({ 
+      video: true, // 必須請求 video 才能抓取 tab audio
+      audio: true 
+    });
+    
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512; // 解析度
+    analyser.smoothingTimeConstant = 0.8; // 讓燈光變化更平滑
+    
+    const source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
+  } catch (e) {
+    console.error("無法啟用燈光同步 (使用者取消或未分享音訊):", e);
+    // 不阻擋流程，只是沒燈光
   }
 }
 
@@ -428,10 +454,14 @@ setInterval(updateVoteTimerUI, 1000);
 let lightFrame;
 function startLightShow() {
   const lights = document.getElementById('stage-lights');
+  const playerContainer = document.getElementById('player-container');
   if (!lights) return;
   lights.style.transition = 'box-shadow 0.05s ease'; // 讓跳動更靈敏
+  if (playerContainer) playerContainer.style.transition = 'transform 0.05s ease';
   
   function loop() {
+    lightFrame = requestAnimationFrame(loop);
+
     const time = Date.now();
     // 模擬 120 BPM 的重拍 (每 500ms 一次峰值)
     // 使用 sin^6 函數產生尖銳的脈衝感，模擬重低音
@@ -442,7 +472,32 @@ function startLightShow() {
     const hue = (time / 20) % 360; // 顏色隨時間流動
     
     lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 80%, 50%, 0.6), inset 0 0 ${intensity * 2}px hsla(${hue}, 80%, 50%, 0.3)`;
-    lightFrame = requestAnimationFrame(loop);
+    
+    // 模擬震動 (無音訊時)
+    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.01})`;
+
+    if (analyser && dataArray) {
+      analyser.getByteFrequencyData(dataArray);
+      
+      // 取低頻 (Bass) 平均值 (前 4 個頻段)
+      let bass = 0;
+      for(let i=0; i<4; i++) bass += dataArray[i];
+      bass = bass / 4;
+      
+      // 數值正規化與視覺效果
+      const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
+      const intensity = 20 + (level * 180);
+      const hue = (Date.now() / 50) % 360;
+      
+      if (level > 0.05) {
+        lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.7), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.3)`;
+        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.02 倍)
+        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.02})`;
+      } else {
+        lights.style.boxShadow = 'none';
+        if (playerContainer) playerContainer.style.transform = 'scale(1)';
+      }
+    }
   }
   loop();
 }
@@ -450,9 +505,14 @@ function startLightShow() {
 function stopLightShow() {
   if (lightFrame) cancelAnimationFrame(lightFrame);
   const lights = document.getElementById('stage-lights');
+  const playerContainer = document.getElementById('player-container');
   if (lights) {
     lights.style.transition = 'box-shadow 0.5s ease';
     lights.style.boxShadow = 'none';
+  }
+  if (playerContainer) {
+    playerContainer.style.transition = 'transform 0.5s ease';
+    playerContainer.style.transform = 'scale(1)';
   }
 }
 </script>
@@ -533,7 +593,7 @@ function showSuccessAnimation() {
 
 <script>
 // 處理音效解鎖
-document.getElementById('startOverlay').addEventListener('click', function() {
+document.getElementById('startOverlay').addEventListener('click', async function() {
   initAudio(); // 初始化 Web Audio
   
   const audio = document.getElementById('voteSound');
@@ -544,6 +604,10 @@ document.getElementById('startOverlay').addEventListener('click', function() {
       audio.currentTime = 0; 
     }).catch(e => console.error("音效解鎖失敗", e));
   }
+  
+  // 啟用視覺化 (請求麥克風)
+  await setupVisualizer();
+  
   this.style.display = 'none';
 });
 </script>

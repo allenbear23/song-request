@@ -220,6 +220,43 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 <script>
 let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
 
+// --- 顏色分析引擎 ---
+let lastThumbnailUrl = '', currentThemeHue = 0, useThemeColor = false;
+
+function updateThemeColor(url) {
+  const img = new Image();
+  img.crossOrigin = "Anonymous"; // 嘗試跨域讀取圖片
+  img.src = url;
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1; canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      
+      // RGB 轉 HSL 計算色相 (Hue)
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0;
+      if (max !== min) {
+        const d = max - min;
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      currentThemeHue = h * 360;
+      useThemeColor = true;
+    } catch (e) {
+      console.warn("無法提取封面顏色 (CORS 限制):", e);
+      useThemeColor = false;
+    }
+  };
+  img.onerror = () => { useThemeColor = false; };
+}
+
 // --- 音效引擎 (Web Audio API) ---
 let audioCtx, gainNode, analyser, dataArray;
 
@@ -352,6 +389,17 @@ function refreshQueueSidebar() {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;
     currentQueue = queue;
+    
+    // 偵測封面變更並更新主題色
+    if (queue.length > 0) {
+      if (queue[0].thumbnail !== lastThumbnailUrl) {
+        lastThumbnailUrl = queue[0].thumbnail;
+        updateThemeColor(lastThumbnailUrl);
+      }
+    } else {
+      useThemeColor = false;
+      lastThumbnailUrl = '';
+    }
 
     // 自動同步播放器：如果佇列第一首跟目前播放的不一樣，就切歌
     if (queue.length > 0) {
@@ -469,7 +517,12 @@ function startLightShow() {
     
     // 隨機強度 + 節奏脈衝
     const intensity = 30 + (beat * 120) + (Math.random() * 20);
-    const hue = (time / 20) % 360; // 顏色隨時間流動
+    
+    // 決定燈光顏色 (使用封面主色 或 彩虹流動)
+    let hue = (time / 20) % 360;
+    if (useThemeColor) {
+      hue = currentThemeHue + Math.sin(time / 2000) * 20; // 在主色附近輕微波動
+    }
     
     lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 80%, 50%, 0.6), inset 0 0 ${intensity * 2}px hsla(${hue}, 80%, 50%, 0.3)`;
     
@@ -487,7 +540,6 @@ function startLightShow() {
       // 數值正規化與視覺效果
       const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
       const intensity = 20 + (level * 180);
-      const hue = (Date.now() / 50) % 360;
       
       if (level > 0.05) {
         lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.7), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.3)`;

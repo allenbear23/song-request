@@ -222,6 +222,12 @@ let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, curre
 
 // --- 顏色分析引擎 ---
 let lastThumbnailUrl = '', currentThemeHue = 0, useThemeColor = false;
+// 新增即時影像擷取變數
+let captureVideo = document.createElement('video');
+captureVideo.muted = true;
+captureVideo.autoplay = true;
+captureVideo.playsInline = true;
+let colorCtx = null;
 
 function updateThemeColor(url) {
   const img = new Image();
@@ -293,6 +299,10 @@ async function setupVisualizer() {
       video: true, // 必須請求 video 才能抓取 tab audio
       audio: true 
     });
+    
+    // 連接影像串流以進行顏色分析
+    captureVideo.srcObject = stream;
+    captureVideo.play().catch(e => console.error("影像播放失敗", e));
     
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
@@ -528,6 +538,46 @@ function startLightShow() {
     
     // 模擬震動 (無音訊時)
     if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.01})`;
+
+    // --- 即時影像顏色分析 ---
+    if (captureVideo && captureVideo.readyState >= 2) {
+      if (!colorCtx) {
+        const c = document.createElement('canvas');
+        c.width = 1; c.height = 1;
+        colorCtx = c.getContext('2d', { willReadFrequently: true });
+      }
+      try {
+        // 取畫面中央 50% 區域平均色，避免受邊緣燈光影響
+        colorCtx.drawImage(captureVideo, 
+          captureVideo.videoWidth * 0.25, captureVideo.videoHeight * 0.25, 
+          captureVideo.videoWidth * 0.5, captureVideo.videoHeight * 0.5, 
+          0, 0, 1, 1);
+        
+        const [r, g, b] = colorCtx.getImageData(0, 0, 1, 1).data;
+        
+        // RGB 轉 HSL
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h = 0;
+        if (max !== min) {
+          const d = max - min;
+          switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+          }
+          h /= 6;
+        }
+        // 平滑更新色相
+        const targetHue = h * 360;
+        // 簡單緩動，若跨越 0/360 邊界則直接切換
+        if (Math.abs(targetHue - currentThemeHue) > 180) {
+             currentThemeHue = targetHue;
+        } else {
+             currentThemeHue += (targetHue - currentThemeHue) * 0.1;
+        }
+        useThemeColor = true;
+      } catch (e) { /* 忽略 */ }
+    }
 
     if (analyser && dataArray) {
       analyser.getByteFrequencyData(dataArray);

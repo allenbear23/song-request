@@ -153,6 +153,11 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   box-shadow: inset 0 0 0 rgba(0,0,0,0);
   transition: box-shadow 0.5s ease;
 }
+/* 頻譜分析圖 */
+#visualizerCanvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 85;
+}
 </style>
 </head>
 <body>
@@ -167,6 +172,7 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 
 <!-- 舞台燈光層 -->
 <div id="stage-lights"></div>
+<canvas id="visualizerCanvas"></canvas>
 
 <div id="player-container">
   <div id="player"></div>
@@ -513,9 +519,15 @@ let lightFrame;
 function startLightShow() {
   const lights = document.getElementById('stage-lights');
   const playerContainer = document.getElementById('player-container');
+  const canvas = document.getElementById('visualizerCanvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+
   if (!lights) return;
   lights.style.transition = 'box-shadow 0.05s ease'; // 讓跳動更靈敏
   if (playerContainer) playerContainer.style.transition = 'transform 0.05s ease';
+  
+  // 設定 Canvas 解析度
+  if (canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   
   function loop() {
     lightFrame = requestAnimationFrame(loop);
@@ -599,6 +611,33 @@ function startLightShow() {
         lights.style.boxShadow = 'none';
         if (playerContainer) playerContainer.style.transform = 'scale(1)';
       }
+
+      // --- 繪製頻譜分析圖 ---
+      if (ctx && canvas) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const bufferLength = analyser.frequencyBinCount;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) * 0.15; // 基礎半徑
+        
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+
+        for(let i = 0; i < bufferLength; i++) {
+          const value = dataArray[i];
+          const barHeight = (value / 255) * (Math.min(canvas.width, canvas.height) * 0.3);
+          const angle = (i / bufferLength) * Math.PI * 2 - Math.PI / 2;
+          
+          // 顏色跟隨主題色或彩虹
+          const barHue = useThemeColor ? currentThemeHue : (i / bufferLength * 360 + (Date.now() / 50));
+          ctx.strokeStyle = `hsla(${barHue}, 100%, 50%, 0.8)`;
+          
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+          ctx.lineTo(cx + Math.cos(angle) * (radius + barHeight), cy + Math.sin(angle) * (radius + barHeight));
+          ctx.stroke();
+        }
+      }
     }
   }
   loop();
@@ -608,6 +647,7 @@ function stopLightShow() {
   if (lightFrame) cancelAnimationFrame(lightFrame);
   const lights = document.getElementById('stage-lights');
   const playerContainer = document.getElementById('player-container');
+  const canvas = document.getElementById('visualizerCanvas');
   if (lights) {
     lights.style.transition = 'box-shadow 0.5s ease';
     lights.style.boxShadow = 'none';
@@ -616,7 +656,17 @@ function stopLightShow() {
     playerContainer.style.transition = 'transform 0.5s ease';
     playerContainer.style.transform = 'scale(1)';
   }
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 }
+
+// 視窗大小改變時更新 Canvas 寬度
+window.addEventListener('resize', () => {
+  const c = document.getElementById('visualizerCanvas');
+  if(c) { c.width = window.innerWidth; c.height = window.innerHeight; }
+});
 </script>
 
 <script>

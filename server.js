@@ -35,6 +35,7 @@ let VOTE_THRESHOLD = 3;       // 預設 3 票切歌
 const VOTE_TIMEOUT = 60000;   // 投票有效時間 60 秒
 let BAN_DURATION = 5 * 60 * 1000; // 預設停權 5 分鐘
 let AUTO_QUEUE_ENABLED = true; // 自動推薦開關 (預設開啟)
+let VISUAL_EFFECTS_ENABLED = true; // 舞台燈光特效開關 (預設開啟)
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
 const BANNED_WORDS_FILE = 'banned_words.json'; // 違禁詞資料檔
 const SONGS_FILE = 'songs.json'; // 歌曲統計資料檔
@@ -506,7 +507,13 @@ app.post('/playlist/clear', async (req, res) => {
 
 // 取得設定 (公開)
 app.get('/settings', (req, res) => {
-  res.json({ threshold: VOTE_THRESHOLD, timeout: VOTE_TIMEOUT, banDuration: BAN_DURATION / 60000, autoQueue: AUTO_QUEUE_ENABLED });
+  res.json({ 
+    threshold: VOTE_THRESHOLD, 
+    timeout: VOTE_TIMEOUT, 
+    banDuration: BAN_DURATION / 60000, 
+    autoQueue: AUTO_QUEUE_ENABLED,
+    visualEffects: VISUAL_EFFECTS_ENABLED
+  });
 });
 
 // 修改門檻 (管理員)
@@ -537,6 +544,17 @@ app.post('/admin/auto-queue', protect, (req, res) => {
   if (typeof enabled === 'boolean') {
     AUTO_QUEUE_ENABLED = enabled;
     res.json({ ok: true, autoQueue: AUTO_QUEUE_ENABLED });
+  } else {
+    res.status(400).json({ error: "Invalid value" });
+  }
+});
+
+// 修改舞台燈光特效開關 (管理員)
+app.post('/admin/visual-effects', protect, (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled === 'boolean') {
+    VISUAL_EFFECTS_ENABLED = enabled;
+    res.json({ ok: true, visualEffects: VISUAL_EFFECTS_ENABLED });
   } else {
     res.status(400).json({ error: "Invalid value" });
   }

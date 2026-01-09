@@ -537,8 +537,11 @@ function startLightShow() {
     // 使用 sin^6 函數產生尖銳的脈衝感，模擬重低音
     const beat = Math.pow((Math.sin(time / 250 * Math.PI) + 1) / 2, 6);
     
+    // 根據螢幕寬度調整強度係數 (基準 1200px，大螢幕會放大效果)
+    const sizeFactor = Math.max(1, window.innerWidth / 1200);
+
     // 隨機強度 + 節奏脈衝 (增強版)
-    const intensity = 50 + (beat * 250) + (Math.random() * 30);
+    const intensity = (60 + (beat * 350) + (Math.random() * 30)) * sizeFactor;
     
     // 決定燈光顏色 (使用封面主色 或 彩虹流動)
     let hue = (time / 20) % 360;
@@ -554,7 +557,7 @@ function startLightShow() {
     }
     
     // 模擬震動 (無音訊時)
-    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.025})`;
+    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.04})`;
 
     // --- 即時影像顏色分析 ---
     if (captureVideo && captureVideo.readyState >= 2) {
@@ -606,7 +609,7 @@ function startLightShow() {
       
       // 數值正規化與視覺效果
       const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
-      const intensity = 40 + (level * 400);
+      const intensity = (50 + (level * 600)) * sizeFactor;
       
       if (level > 0.05) {
         // 真實音訊的 Strobe 效果 (當低頻強度 > 0.45 時爆閃)
@@ -615,8 +618,8 @@ function startLightShow() {
         } else {
           lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.9), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.5)`;
         }
-        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.06 倍)
-        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.06})`;
+        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.08 倍)
+        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.08})`;
       } else {
         lights.style.boxShadow = 'none';
         if (playerContainer) playerContainer.style.transform = 'scale(1)';

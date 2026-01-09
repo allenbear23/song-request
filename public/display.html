@@ -308,7 +308,7 @@ async function setupVisualizer() {
     
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 512; // 解析度
-    analyser.smoothingTimeConstant = 0.8; // 讓燈光變化更平滑
+    analyser.smoothingTimeConstant = 0.6; // 降低平滑度讓節奏更強烈
     
     const source = audioCtx.createMediaStreamSource(stream);
     source.connect(analyser);
@@ -526,7 +526,7 @@ function startLightShow() {
     const beat = Math.pow((Math.sin(time / 250 * Math.PI) + 1) / 2, 6);
     
     // 隨機強度 + 節奏脈衝
-    const intensity = 30 + (beat * 120) + (Math.random() * 20);
+    const intensity = 30 + (beat * 160) + (Math.random() * 20);
     
     // 決定燈光顏色 (使用封面主色 或 彩虹流動)
     let hue = (time / 20) % 360;
@@ -537,7 +537,7 @@ function startLightShow() {
     lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 80%, 50%, 0.6), inset 0 0 ${intensity * 2}px hsla(${hue}, 80%, 50%, 0.3)`;
     
     // 模擬震動 (無音訊時)
-    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.01})`;
+    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.025})`;
 
     // --- 即時影像顏色分析 ---
     if (captureVideo && captureVideo.readyState >= 2) {
@@ -589,12 +589,12 @@ function startLightShow() {
       
       // 數值正規化與視覺效果
       const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
-      const intensity = 20 + (level * 180);
+      const intensity = 20 + (level * 260);
       
       if (level > 0.05) {
         lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.7), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.3)`;
-        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.02 倍)
-        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.02})`;
+        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.06 倍)
+        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.06})`;
       } else {
         lights.style.boxShadow = 'none';
         if (playerContainer) playerContainer.style.transform = 'scale(1)';

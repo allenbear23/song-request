@@ -153,11 +153,6 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   box-shadow: inset 0 0 0 rgba(0,0,0,0);
   transition: box-shadow 0.5s ease;
 }
-/* 頻譜分析圖 */
-#visualizerCanvas {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: 85;
-}
 </style>
 </head>
 <body>
@@ -172,7 +167,6 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 
 <!-- 舞台燈光層 -->
 <div id="stage-lights"></div>
-<canvas id="visualizerCanvas"></canvas>
 
 <div id="player-container">
   <div id="player"></div>
@@ -519,15 +513,11 @@ let lightFrame;
 function startLightShow() {
   const lights = document.getElementById('stage-lights');
   const playerContainer = document.getElementById('player-container');
-  const canvas = document.getElementById('visualizerCanvas');
-  const ctx = canvas ? canvas.getContext('2d') : null;
 
   if (!lights) return;
   lights.style.transition = 'box-shadow 0.05s ease'; // 讓跳動更靈敏
   if (playerContainer) playerContainer.style.transition = 'transform 0.05s ease';
   
-  // 設定 Canvas 解析度
-  if (canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   
   function loop() {
     lightFrame = requestAnimationFrame(loop);
@@ -537,8 +527,8 @@ function startLightShow() {
     // 使用 sin^6 函數產生尖銳的脈衝感，模擬重低音
     const beat = Math.pow((Math.sin(time / 250 * Math.PI) + 1) / 2, 6);
     
-    // 隨機強度 + 節奏脈衝
-    const intensity = 30 + (beat * 160) + (Math.random() * 20);
+    // 隨機強度 + 節奏脈衝 (增強版)
+    const intensity = 50 + (beat * 250) + (Math.random() * 30);
     
     // 決定燈光顏色 (使用封面主色 或 彩虹流動)
     let hue = (time / 20) % 360;
@@ -546,7 +536,12 @@ function startLightShow() {
       hue = currentThemeHue + Math.sin(time / 2000) * 20; // 在主色附近輕微波動
     }
     
-    lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 80%, 50%, 0.6), inset 0 0 ${intensity * 2}px hsla(${hue}, 80%, 50%, 0.3)`;
+    // 模擬模式的 Strobe 效果 (當 beat 強度 > 0.8 時爆閃)
+    if (beat > 0.8) {
+      lights.style.boxShadow = `inset 0 0 ${intensity * 1.2}px rgba(255,255,255,0.8), inset 0 0 ${intensity * 2.5}px hsla(${hue}, 100%, 70%, 0.8)`;
+    } else {
+      lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 90%, 50%, 0.8), inset 0 0 ${intensity * 2}px hsla(${hue}, 90%, 50%, 0.4)`;
+    }
     
     // 模擬震動 (無音訊時)
     if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.025})`;
@@ -601,42 +596,20 @@ function startLightShow() {
       
       // 數值正規化與視覺效果
       const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
-      const intensity = 20 + (level * 260);
+      const intensity = 40 + (level * 400);
       
       if (level > 0.05) {
-        lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.7), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.3)`;
+        // 真實音訊的 Strobe 效果 (當低頻強度 > 0.45 時爆閃)
+        if (level > 0.45) {
+          lights.style.boxShadow = `inset 0 0 ${intensity * 1.2}px rgba(255,255,255,0.9), inset 0 0 ${intensity * 2.5}px hsla(${hue}, 100%, 60%, 0.9)`;
+        } else {
+          lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.9), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.5)`;
+        }
         // 真實震動 (有音訊時覆蓋模擬，最大放大 1.06 倍)
         if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.06})`;
       } else {
         lights.style.boxShadow = 'none';
         if (playerContainer) playerContainer.style.transform = 'scale(1)';
-      }
-
-      // --- 繪製頻譜分析圖 ---
-      if (ctx && canvas) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const bufferLength = analyser.frequencyBinCount;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const radius = Math.min(canvas.width, canvas.height) * 0.15; // 基礎半徑
-        
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-
-        for(let i = 0; i < bufferLength; i++) {
-          const value = dataArray[i];
-          const barHeight = (value / 255) * (Math.min(canvas.width, canvas.height) * 0.3);
-          const angle = (i / bufferLength) * Math.PI * 2 - Math.PI / 2;
-          
-          // 顏色跟隨主題色或彩虹
-          const barHue = useThemeColor ? currentThemeHue : (i / bufferLength * 360 + (Date.now() / 50));
-          ctx.strokeStyle = `hsla(${barHue}, 100%, 50%, 0.8)`;
-          
-          ctx.beginPath();
-          ctx.moveTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
-          ctx.lineTo(cx + Math.cos(angle) * (radius + barHeight), cy + Math.sin(angle) * (radius + barHeight));
-          ctx.stroke();
-        }
       }
     }
   }
@@ -647,7 +620,6 @@ function stopLightShow() {
   if (lightFrame) cancelAnimationFrame(lightFrame);
   const lights = document.getElementById('stage-lights');
   const playerContainer = document.getElementById('player-container');
-  const canvas = document.getElementById('visualizerCanvas');
   if (lights) {
     lights.style.transition = 'box-shadow 0.5s ease';
     lights.style.boxShadow = 'none';
@@ -656,17 +628,7 @@ function stopLightShow() {
     playerContainer.style.transition = 'transform 0.5s ease';
     playerContainer.style.transform = 'scale(1)';
   }
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
 }
-
-// 視窗大小改變時更新 Canvas 寬度
-window.addEventListener('resize', () => {
-  const c = document.getElementById('visualizerCanvas');
-  if(c) { c.width = window.innerWidth; c.height = window.innerHeight; }
-});
 </script>
 
 <script>

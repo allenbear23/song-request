@@ -218,7 +218,7 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 </div>
 
 <script>
-let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
+let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0, visualEffectsEnabled = true;
 
 // --- 顏色分析引擎 ---
 let lastThumbnailUrl = '', currentThemeHue = 0, useThemeColor = false;
@@ -398,6 +398,15 @@ function refreshQueueSidebar() {
   ]).then(([queue, settings]) => {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;
+    
+    // 更新特效設定
+    const effectsOn = settings.visualEffects !== false; // 預設為開啟
+    if (visualEffectsEnabled !== effectsOn) {
+      visualEffectsEnabled = effectsOn;
+      if (!visualEffectsEnabled) stopLightShow();
+      else if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) startLightShow();
+    }
+
     currentQueue = queue;
     
     // 偵測封面變更並更新主題色
@@ -511,6 +520,7 @@ setInterval(updateVoteTimerUI, 1000);
 // --- 舞台燈光模擬節奏引擎 ---
 let lightFrame;
 function startLightShow() {
+  if (!visualEffectsEnabled) return;
   const lights = document.getElementById('stage-lights');
   const playerContainer = document.getElementById('player-container');
 

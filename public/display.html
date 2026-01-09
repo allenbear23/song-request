@@ -145,6 +145,14 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   0% { transform: scale(0.5); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* 舞台燈光特效 */
+#stage-lights {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 90;
+  box-shadow: inset 0 0 0 rgba(0,0,0,0);
+  transition: box-shadow 0.5s ease;
+}
 </style>
 </head>
 <body>
@@ -155,6 +163,9 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
   <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
 </div>
+
+<!-- 舞台燈光層 -->
+<div id="stage-lights"></div>
 
 <div id="player-container">
   <div id="player"></div>
@@ -272,6 +283,12 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: () => checkNext(),
       onStateChange: (e) => {
+        // 控制舞台燈光
+        if (e.data === YT.PlayerState.PLAYING) {
+          startLightShow();
+        } else {
+          stopLightShow();
+        }
         if (e.data === YT.PlayerState.ENDED) {
           fetch('/finish', { method: 'POST' }).then(() => checkNext());
         }
@@ -406,6 +423,38 @@ setInterval(() => {
 
 // 獨立的計時器更新迴圈 (每秒)
 setInterval(updateVoteTimerUI, 1000);
+
+// --- 舞台燈光模擬節奏引擎 ---
+let lightFrame;
+function startLightShow() {
+  const lights = document.getElementById('stage-lights');
+  if (!lights) return;
+  lights.style.transition = 'box-shadow 0.05s ease'; // 讓跳動更靈敏
+  
+  function loop() {
+    const time = Date.now();
+    // 模擬 120 BPM 的重拍 (每 500ms 一次峰值)
+    // 使用 sin^6 函數產生尖銳的脈衝感，模擬重低音
+    const beat = Math.pow((Math.sin(time / 250 * Math.PI) + 1) / 2, 6);
+    
+    // 隨機強度 + 節奏脈衝
+    const intensity = 30 + (beat * 120) + (Math.random() * 20);
+    const hue = (time / 20) % 360; // 顏色隨時間流動
+    
+    lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 80%, 50%, 0.6), inset 0 0 ${intensity * 2}px hsla(${hue}, 80%, 50%, 0.3)`;
+    lightFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function stopLightShow() {
+  if (lightFrame) cancelAnimationFrame(lightFrame);
+  const lights = document.getElementById('stage-lights');
+  if (lights) {
+    lights.style.transition = 'box-shadow 0.5s ease';
+    lights.style.boxShadow = 'none';
+  }
+}
 </script>
 
 <script>

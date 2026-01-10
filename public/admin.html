@@ -26,11 +26,17 @@ button:hover { background: #0056b3; }
   (function() {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
+      let urlObj;
+      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+
+      // 只攔截同源 (本站) 的請求，避免影響外部 API (如 LINE LIFF)
+      if (urlObj.origin !== window.location.origin) {
+        return originalFetch(url, options);
+      }
+
       const room = new URLSearchParams(window.location.search).get('room') || 'default';
       const lineUserId = sessionStorage.getItem('line_user_id') || '';
-      // 處理相對路徑與絕對路徑
-      let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { urlObj = new URL(window.location.origin + url); }
+
       urlObj.searchParams.append('room', room);
       
       options = options || {};

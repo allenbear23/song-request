@@ -28,10 +28,15 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   (function() {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
-      const room = new URLSearchParams(window.location.search).get('room') || 'default';
-      // 處理相對路徑與絕對路徑
       let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { urlObj = new URL(window.location.origin + url); }
+      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+
+      // 只攔截同源 (本站) 的請求
+      if (urlObj.origin !== window.location.origin) {
+        return originalFetch(url, options);
+      }
+
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
       urlObj.searchParams.append('room', room);
       return originalFetch(urlObj.toString(), options);
     };

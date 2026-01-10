@@ -59,8 +59,8 @@ async function protect(req, res, next) {
     }
   }
 
-  // 舊房間或未保護的房間 (暫時允許，或視需求阻擋)
-  return res.status(401).json({ error: "未授權" });
+  // 舊房間或未保護的房間 -> 允許進入 (為了相容性)
+  return next();
 }
 
 const lastSkipMessages = {}; // 儲存各房間最新的管理員切歌訊息 { room: message }

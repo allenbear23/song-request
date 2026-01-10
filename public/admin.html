@@ -165,6 +165,9 @@ button:hover { background: #0056b3; }
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
       }
+    }).catch(err => {
+      console.error('LIFF Init Error', err);
+      alert('LINE 登入初始化失敗: ' + err);
     });
   }
 

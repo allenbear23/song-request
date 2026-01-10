@@ -31,6 +31,7 @@ const YT_API_KEY = process.env.YT_API_KEY || "AIzaSyC665Opql5KG7wx87YOYQ3OlH9hx5
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
 const BANNED_WORDS_FILE = 'banned_words.json'; // 違禁詞資料檔
 const SONGS_FILE = 'songs.json'; // 歌曲統計資料檔
+const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 
 // 預設設定
 const DEFAULT_SETTINGS = {
@@ -72,7 +73,7 @@ function getRoom(req) {
 
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
 async function readData(key, room, defaultVal) {
-  const redisKey = `room:${room}:${key}`;
+  const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
   
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
@@ -87,7 +88,8 @@ async function readData(key, room, defaultVal) {
   // 檔案模式 fallback (當 DB 未設定、未連線或讀取失敗時)
   const isDefault = room === 'default';
   let fileName;
-  if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
+  if (key === 'admin_rooms') fileName = ADMIN_ROOMS_FILE;
+  else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
   else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
   else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
   else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
@@ -105,7 +107,7 @@ async function readData(key, room, defaultVal) {
 }
 
 async function writeData(key, room, data) {
-  const redisKey = `room:${room}:${key}`;
+  const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
   
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
@@ -118,7 +120,8 @@ async function writeData(key, room, data) {
   // 檔案模式 fallback
   const isDefault = room === 'default';
   let fileName;
-  if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
+  if (key === 'admin_rooms') fileName = ADMIN_ROOMS_FILE;
+  else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
   else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
   else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
   else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
@@ -189,6 +192,26 @@ async function fetchVideoInfo(videoId) {
 // 建立/登入房間 API
 app.post('/api/room/create', async (req, res) => {
   const { room, adminLineId } = req.body;
+  
+  // 模式 1: 自動配對 (使用者沒傳 room，只傳 adminLineId)
+  if (!room && adminLineId) {
+    const adminRooms = await readData('admin_rooms', 'global', {});
+    let assignedRoom = adminRooms[adminLineId];
+    
+    if (!assignedRoom) {
+      // 產生隨機 6 碼房間 ID (大寫英文+數字)
+      assignedRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // 儲存對應關係
+      adminRooms[adminLineId] = assignedRoom;
+      await writeData('admin_rooms', 'global', adminRooms);
+      
+      // 初始化該房間設定
+      await saveSettings(assignedRoom, { adminLineId });
+    }
+    return res.json({ ok: true, room: assignedRoom, message: "進入您的專屬房間" });
+  }
+
   if (!room || !adminLineId) return res.status(400).json({ error: "資料不完整" });
 
   const settings = await getSettings(room);

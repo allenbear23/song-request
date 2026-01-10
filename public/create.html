@@ -33,9 +33,8 @@ button:hover { background: #0056b3; transform: scale(1.05); }
 
   <!-- 登入後顯示 -->
   <div id="createSection" style="display:none;">
-    <p style="color:#aaa; margin-bottom:20px;">輸入房間名稱 (例如: KTV01, Party)</p>
-    <input type="text" id="roomInput" placeholder="設定房間 ID" onkeyup="if(event.key==='Enter') createRoom()">
-    <button onclick="createRoom()">建立 / 進入房間</button>
+    <p style="color:#aaa; margin-bottom:20px;">您已登入，點擊下方按鈕進入您的專屬房間</p>
+    <button onclick="createRoom()" style="background:#007bff; color:#fff; font-size:20px; padding:15px 40px;">進入我的專屬房間</button>
   </div>
 
   <div id="resultArea" class="links">
@@ -69,8 +68,8 @@ button:hover { background: #0056b3; transform: scale(1.05); }
   <div style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
     <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
     <ol style="padding-left: 20px; margin: 0;">
-      <li><b>登入 LINE</b> 並輸入<b>房間名稱</b>。</li>
-      <li>該房間將會<b>綁定您的 LINE 帳號</b>，只有您可以管理。</li>
+      <li><b>登入 LINE</b> 後點擊按鈕。</li>
+      <li>系統會自動為您分配一個<b>專屬房間</b>。</li>
       <li>將<b>「點歌頁面」</b>連結分享給朋友，讓大家用手機點歌。</li>
       <li>在電視或大螢幕上開啟<b>「播放頁面」</b>，享受音樂與燈光秀。</li>
     </ol>
@@ -103,8 +102,6 @@ function loginLine() {
 }
 
 function createRoom() {
-  const input = document.getElementById('roomInput');
-  const room = input.value.trim() || 'default';
   const baseUrl = window.location.origin;
 
   if (!userProfile || !userProfile.userId) {
@@ -115,11 +112,12 @@ function createRoom() {
   fetch('/api/room/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room, adminLineId: userProfile.userId })
+    body: JSON.stringify({ adminLineId: userProfile.userId }) // 不傳 room，讓後端自動分配
   })
   .then(r => r.json())
   .then(data => {
     if (data.ok) {
+      const room = data.room;
       // 儲存 ID 到 sessionStorage 方便後台直接識別
       sessionStorage.setItem('line_user_id', userProfile.userId);
 

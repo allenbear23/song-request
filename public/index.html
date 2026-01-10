@@ -156,17 +156,9 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         liff.login();
       } else {
         // 情境 2: 外部瀏覽器 (Chrome/Safari/電腦)
-        // 加強行動裝置偵測 (包含 iPadOS)
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        if (isMobile) {
-          // 使用 Universal Link 喚起 LINE App 並帶入目前的 URL 參數 (?room=xxx)
-          // 這是確保參數能正確傳遞到 LIFF 頁面的標準做法
-          window.location.href = `https://liff.line.me/${LIFF_ID}${window.location.search}`;
-        } else {
-          // 電腦版：使用標準網頁登入
-          liff.login({ redirectUri: window.location.href });
-        }
+        // 直接呼叫 liff.login() 進行 OAuth 登入
+        // 移除原本的手機版 Universal Link 跳轉，避免在手機瀏覽器上因未開啟 LINE App 而導致登入狀態無法保存的迴圈
+        liff.login({ redirectUri: window.location.href });
       }
     } catch (err) {
       alert('無法啟動登入: ' + err);

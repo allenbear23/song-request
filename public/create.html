@@ -18,17 +18,25 @@ button:hover { background: #0056b3; transform: scale(1.05); }
 .btn-copy { background: #444; font-size: 14px; padding: 6px 12px; margin-left: 10px; }
 </style>
 </head>
+<!-- 引入 LINE LIFF SDK -->
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <body>
 
 <h1>🏠 建立或加入房間</h1>
 
 <div class="card">
-  <p style="color:#aaa; margin-bottom:20px;">輸入房間名稱 (例如: KTV01, Party, Wedding)</p>
-  <input type="text" id="roomInput" placeholder="設定房間 ID" onkeyup="if(event.key==='Enter') document.getElementById('passInput').focus()">
-  <br>
-  <input type="password" id="passInput" placeholder="設定管理員密碼" onkeyup="if(event.key==='Enter') createRoom()">
-  <br>
-  <button onclick="createRoom()">建立 / 進入房間</button>
+  <!-- 未登入時顯示 -->
+  <div id="loginSection">
+    <p style="color:#aaa; margin-bottom:20px;">請先登入 LINE 帳號以建立專屬房間</p>
+    <button onclick="loginLine()" style="background:#06c755;">LINE 登入</button>
+  </div>
+
+  <!-- 登入後顯示 -->
+  <div id="createSection" style="display:none;">
+    <p style="color:#aaa; margin-bottom:20px;">輸入房間名稱 (例如: KTV01, Party)</p>
+    <input type="text" id="roomInput" placeholder="設定房間 ID" onkeyup="if(event.key==='Enter') createRoom()">
+    <button onclick="createRoom()">建立 / 進入房間</button>
+  </div>
 
   <div id="resultArea" class="links">
     <h3 style="margin-top:0;">🚀 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
@@ -61,37 +69,59 @@ button:hover { background: #0056b3; transform: scale(1.05); }
   <div style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
     <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
     <ol style="padding-left: 20px; margin: 0;">
-      <li>輸入<b>房間名稱</b>與<b>管理密碼</b>，點擊建立。</li>
+      <li><b>登入 LINE</b> 並輸入<b>房間名稱</b>。</li>
+      <li>該房間將會<b>綁定您的 LINE 帳號</b>，只有您可以管理。</li>
       <li>將<b>「點歌頁面」</b>連結分享給朋友，讓大家用手機點歌。</li>
       <li>在電視或大螢幕上開啟<b>「播放頁面」</b>，享受音樂與燈光秀。</li>
-      <li>使用<b>「後台管理」</b>來切歌、設定違禁詞或調整系統參數。</li>
     </ol>
   </div>
 </div>
 
 <script>
+const LIFF_ID = '2008832076-eA3l2ogi';
+let userProfile = null;
+
+function initLiff() {
+  liff.init({ liffId: LIFF_ID }).then(() => {
+    if (liff.isLoggedIn()) {
+      liff.getProfile().then(profile => {
+        userProfile = profile;
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('createSection').style.display = 'block';
+      });
+    } else {
+      document.getElementById('loginSection').style.display = 'block';
+    }
+  }).catch(err => {
+    console.error('LIFF Init Error', err);
+    alert('LINE 登入初始化失敗');
+  });
+}
+
+function loginLine() {
+  liff.login();
+}
+
 function createRoom() {
   const input = document.getElementById('roomInput');
-  const passInput = document.getElementById('passInput');
   const room = input.value.trim() || 'default';
-  const password = passInput.value.trim();
   const baseUrl = window.location.origin;
 
-  if (!password) {
-    alert("為了安全，請設定一組管理員密碼");
+  if (!userProfile || !userProfile.userId) {
+    alert("請先登入 LINE");
     return;
   }
 
   fetch('/api/room/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room, password })
+    body: JSON.stringify({ room, adminLineId: userProfile.userId })
   })
   .then(r => r.json())
   .then(data => {
     if (data.ok) {
-      // 儲存密碼到 sessionStorage 方便直接登入
-      sessionStorage.setItem('room_password_' + room, password);
+      // 儲存 ID 到 sessionStorage 方便後台直接識別
+      sessionStorage.setItem('line_user_id', userProfile.userId);
 
       document.getElementById('roomNameDisplay').innerText = room;
       
@@ -117,6 +147,8 @@ function copyLink(id) {
   const url = document.getElementById(id).href;
   navigator.clipboard.writeText(url).then(() => alert('已複製連結！'));
 }
+
+initLiff();
 </script>
 
 </body>

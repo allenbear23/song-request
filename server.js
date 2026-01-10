@@ -45,20 +45,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 權限驗證 Middleware (針對房間密碼)
 async function protect(req, res, next) {
   const room = getRoom(req);
-  const clientPassword = req.headers['x-room-password'];
-
-  if (!clientPassword) {
-    return res.status(401).json({ error: "請提供管理員密碼" });
-  }
+  const clientLineId = req.headers['x-line-user-id'];
 
   const settings = await getSettings(room);
-  // 如果房間沒設定密碼 (舊房間)，或者密碼匹配
-  if (!settings.adminPassword || settings.adminPassword === clientPassword) {
-    return next();
+  
+  // 如果房間有設定管理員 LINE ID
+  if (settings.adminLineId) {
+    if (settings.adminLineId === clientLineId) {
+      return next();
+    } else {
+      return res.status(401).json({ error: "權限不足 (非此房間管理員)" });
+    }
   }
 
-  // 密碼錯誤
-  return res.status(401).json({ error: "管理員密碼錯誤" });
+  // 舊房間或未保護的房間 (暫時允許，或視需求阻擋)
+  return res.status(401).json({ error: "未授權" });
 }
 
 const lastSkipMessages = {}; // 儲存各房間最新的管理員切歌訊息 { room: message }
@@ -187,22 +188,22 @@ async function fetchVideoInfo(videoId) {
 
 // 建立/登入房間 API
 app.post('/api/room/create', async (req, res) => {
-  const { room, password } = req.body;
-  if (!room || !password) return res.status(400).json({ error: "請輸入房間名稱與密碼" });
+  const { room, adminLineId } = req.body;
+  if (!room || !adminLineId) return res.status(400).json({ error: "資料不完整" });
 
   const settings = await getSettings(room);
   
-  // 如果房間已存在且有密碼，則驗證密碼 (視為登入)
-  if (settings.adminPassword) {
-    if (settings.adminPassword === password) {
+  // 如果房間已存在且有綁定管理員
+  if (settings.adminLineId) {
+    if (settings.adminLineId === adminLineId) {
       return res.json({ ok: true, message: "登入成功 (房間已存在)" });
     } else {
-      return res.status(401).json({ error: "房間已存在，但密碼錯誤" });
+      return res.status(401).json({ error: "房間名稱已被其他人使用，請更換名稱" });
     }
   }
 
-  // 新房間 (或無密碼房間)，設定密碼
-  await saveSettings(room, { adminPassword: password });
+  // 新房間，綁定管理員 LINE ID
+  await saveSettings(room, { adminLineId });
   res.json({ ok: true, message: "房間建立成功" });
 });
 
@@ -586,7 +587,7 @@ app.get('/settings', async (req, res) => {
     banDuration: settings.banDuration / 60000, 
     autoQueue: settings.autoQueue,
     visualEffects: settings.visualEffects,
-    hasPassword: !!settings.adminPassword // 告訴前端是否需要密碼
+    hasAdmin: !!settings.adminLineId
   });
 });
 

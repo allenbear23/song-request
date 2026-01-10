@@ -28,7 +28,7 @@ button:hover { background: #0056b3; transform: scale(1.05); }
   <!-- 未登入時顯示 -->
   <div id="loginSection">
     <p style="color:#aaa; margin-bottom:20px;">請先登入 LINE 帳號以建立專屬房間</p>
-    <button onclick="loginLine()" style="background:#06c755;">LINE 登入</button>
+    <button id="btnLogin" onclick="loginLine()" style="background:#06c755;">LINE 登入</button>
   </div>
 
   <!-- 登入後顯示 -->
@@ -81,6 +81,9 @@ const LIFF_ID = '2008832076-eA3l2ogi';
 let userProfile = null;
 
 function initLiff() {
+  const btn = document.getElementById('btnLogin');
+  if(btn) btn.innerText = "載入中...";
+
   liff.init({ liffId: LIFF_ID }).then(() => {
     if (liff.isLoggedIn()) {
       liff.getProfile().then(profile => {
@@ -90,15 +93,24 @@ function initLiff() {
       });
     } else {
       document.getElementById('loginSection').style.display = 'block';
+      if(btn) btn.innerText = "LINE 登入";
     }
   }).catch(err => {
     console.error('LIFF Init Error', err);
     alert('LINE 登入初始化失敗');
+    if(btn) btn.innerText = "LINE 登入 (重試)";
   });
 }
 
 function loginLine() {
-  liff.login({ redirectUri: window.location.href });
+  // 清除 URL 中的 LINE Login 參數，避免重複帶入導致錯誤
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code');
+  url.searchParams.delete('state');
+  url.searchParams.delete('liffClientId');
+  url.searchParams.delete('liffRedirectUri');
+  
+  liff.login({ redirectUri: url.toString() });
 }
 
 function createRoom() {

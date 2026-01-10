@@ -27,7 +27,12 @@ button:hover { background: #0056b3; }
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
       let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+      // 處理 url 為 Request 物件的情況
+      if (url instanceof Request) {
+        try { urlObj = new URL(url.url); } catch(e) { return originalFetch(url, options); }
+      } else {
+        try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+      }
 
       // 只攔截同源 (本站) 的請求，避免影響外部 API (如 LINE LIFF)
       if (urlObj.origin !== window.location.origin) {
@@ -55,7 +60,7 @@ button:hover { background: #0056b3; }
     <h2 style="margin-top:0;">🔐 管理員登入</h2>
     <p id="roomNameLabel" style="color:#aaa;"></p>
     <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
-    <button onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
+    <button id="btnLogin" onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
   </div>
 </div>
 
@@ -150,6 +155,9 @@ button:hover { background: #0056b3; }
   document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
 
   function initLiff() {
+    const btn = document.getElementById('btnLogin');
+    if(btn) btn.innerText = "載入中...";
+
     liff.init({ liffId: LIFF_ID }).then(() => {
       if (liff.isLoggedIn()) {
         liff.getProfile().then(profile => {
@@ -170,15 +178,24 @@ button:hover { background: #0056b3; }
         });
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
+        if(btn) btn.innerText = "LINE 登入驗證";
       }
     }).catch(err => {
       console.error('LIFF Init Error', err);
       alert('LINE 登入初始化失敗: ' + err);
+      if(btn) btn.innerText = "LINE 登入驗證 (重試)";
     });
   }
 
   function loginLine() {
-    liff.login({ redirectUri: window.location.href });
+    // 清除 URL 中的 LINE Login 參數
+    const url = new URL(window.location.href);
+    url.searchParams.delete('code');
+    url.searchParams.delete('state');
+    url.searchParams.delete('liffClientId');
+    url.searchParams.delete('liffRedirectUri');
+    
+    liff.login({ redirectUri: url.toString() });
   }
 
   function initPage() {

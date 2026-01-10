@@ -23,25 +23,6 @@ button { background: #ff4444; color: #fff; font-weight: bold; }
 hr { border:0; height:1px; background:#222; margin:12px 0; }
 </style>
 </head>
-<script>
-  // 自動將網址列的 ?room=xxx 參數帶入所有的 API 請求
-  (function() {
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-      let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
-
-      // 只攔截同源 (本站) 的請求
-      if (urlObj.origin !== window.location.origin) {
-        return originalFetch(url, options);
-      }
-
-      const room = new URLSearchParams(window.location.search).get('room') || 'default';
-      urlObj.searchParams.append('room', room);
-      return originalFetch(urlObj.toString(), options);
-    };
-  })();
-</script>
 <!-- 引入 LINE LIFF SDK -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <body>
@@ -83,7 +64,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   <h1 style="display:flex; justify-content:space-between; align-items:center;">
     手機點歌
     <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
-    <a href="/create.html" style="font-size:12px; color:#aaa; text-decoration:none; margin-left:10px;">(建立房間)</a>
   </h1>
   <button onclick="shareRoom()" style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤 分享此房間連結</button>
 

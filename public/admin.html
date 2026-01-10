@@ -19,50 +19,7 @@ button:hover { background: #0056b3; }
 .btn-del { background: #dc3545; } .btn-del:hover { background: #c82333; }
 </style>
 </head>
-<!-- 引入 LINE LIFF SDK -->
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script>
-  // 自動將網址列的 ?room=xxx 參數與 LINE User ID Header 帶入所有的 API 請求
-  (function() {
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-      let urlObj;
-      // 處理 url 為 Request 物件的情況
-      if (url instanceof Request) {
-        try { urlObj = new URL(url.url); } catch(e) { return originalFetch(url, options); }
-      } else {
-        try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
-      }
-
-      // 只攔截同源 (本站) 的請求，避免影響外部 API (如 LINE LIFF)
-      if (urlObj.origin !== window.location.origin) {
-        return originalFetch(url, options);
-      }
-
-      const room = new URLSearchParams(window.location.search).get('room') || 'default';
-      const lineUserId = sessionStorage.getItem('line_user_id') || '';
-
-      urlObj.searchParams.append('room', room);
-      
-      options = options || {};
-      options.headers = options.headers || {};
-      options.headers['x-line-user-id'] = lineUserId;
-      
-      return originalFetch(urlObj.toString(), options);
-    };
-  })();
-</script>
 <body>
-
-<!-- 管理員登入遮罩 -->
-<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center;">
-  <div style="background:#222; padding:30px; border-radius:10px; text-align:center; border:1px solid #444; width:300px;">
-    <h2 style="margin-top:0;">🔐 管理員登入</h2>
-    <p id="roomNameLabel" style="color:#aaa;"></p>
-    <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
-    <button id="btnLogin" onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
-  </div>
-</div>
 
 <h1>⚙️ 系統設定</h1>
 
@@ -143,61 +100,12 @@ button:hover { background: #0056b3; }
 <div class="card">
   <h3>其他功能</h3>
   <p>
-    <a href="#" onclick="openLink('/display.html')" style="color:#4da3ff">開啟播放頁面</a> | 
-    <a href="#" onclick="openLink('/')" style="color:#4da3ff">開啟點歌頁面</a>
+    <a href="/display.html" target="_blank" style="color:#4da3ff">開啟播放頁面</a> | 
+    <a href="/" target="_blank" style="color:#4da3ff">開啟點歌頁面</a>
   </p>
 </div>
 
 <script>
-  // --- 登入邏輯 ---
-  const LIFF_ID = '2008832076-eA3l2ogi';
-  const currentRoom = new URLSearchParams(window.location.search).get('room') || 'default';
-  document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
-
-  function initLiff() {
-    const btn = document.getElementById('btnLogin');
-    if(btn) btn.innerText = "載入中...";
-
-    liff.init({ liffId: LIFF_ID }).then(() => {
-      if (liff.isLoggedIn()) {
-        liff.getProfile().then(profile => {
-          // 儲存 ID 供 fetch interceptor 使用
-          sessionStorage.setItem('line_user_id', profile.userId);
-          
-          // 驗證是否為該房間管理員
-          fetch('/api/room/login')
-            .then(r => r.json())
-            .then(data => {
-              if (data.ok) {
-                document.getElementById('loginOverlay').style.display = 'none';
-                initPage();
-              } else {
-                alert(data.error || '權限不足：您不是此房間的管理員');
-              }
-            });
-        });
-      } else {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        if(btn) btn.innerText = "LINE 登入驗證";
-      }
-    }).catch(err => {
-      console.error('LIFF Init Error', err);
-      alert('LINE 登入初始化失敗: ' + err);
-      if(btn) btn.innerText = "LINE 登入驗證 (重試)";
-    });
-  }
-
-  function loginLine() {
-    // 清除 URL 中的 LINE Login 參數
-    const url = new URL(window.location.href);
-    url.searchParams.delete('code');
-    url.searchParams.delete('state');
-    url.searchParams.delete('liffClientId');
-    url.searchParams.delete('liffRedirectUri');
-    
-    liff.login({ redirectUri: url.toString() });
-  }
-
   function initPage() {
   // 載入目前設定
   fetch('/settings')
@@ -212,11 +120,6 @@ button:hover { background: #0056b3; }
     refreshQueue();
     refreshBannedList();
     refreshBannedWords();
-  }
-
-  function openLink(path) {
-    const room = new URLSearchParams(window.location.search).get('room') || 'default';
-    window.open(path + '?room=' + encodeURIComponent(room), '_blank');
   }
 
   function saveThreshold() {
@@ -477,7 +380,7 @@ button:hover { background: #0056b3; }
   }
 
   // 初始載入
-  initLiff();
+  initPage();
 </script>
 
 </body>

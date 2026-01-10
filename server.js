@@ -1,4 +1,7 @@
 // server.js
+const ADMIN_USER = "allen";      // 管理員帳號
+const ADMIN_PASS = "123456";     // 管理員密碼
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +34,6 @@ const YT_API_KEY = process.env.YT_API_KEY || "AIzaSyC665Opql5KG7wx87YOYQ3OlH9hx5
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
 const BANNED_WORDS_FILE = 'banned_words.json'; // 違禁詞資料檔
 const SONGS_FILE = 'songs.json'; // 歌曲統計資料檔
-const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 
 // 預設設定
 const DEFAULT_SETTINGS = {
@@ -43,37 +45,25 @@ app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 權限驗證 Middleware (針對房間密碼)
-async function protect(req, res, next) {
-  const room = getRoom(req);
-  const clientLineId = req.headers['x-line-user-id'];
-
-  const settings = await getSettings(room);
-  
-  // 如果房間有設定管理員 LINE ID
-  if (settings.adminLineId) {
-    if (settings.adminLineId === clientLineId) {
-      return next();
-    } else {
-      return res.status(401).json({ error: "權限不足 (非此房間管理員)" });
-    }
+// 權限驗證 Middleware (Basic Auth)
+function protect(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Basic ")) {
+    res.set("WWW-Authenticate", 'Basic realm="Protected Area"');
+    return res.status(401).send("Authentication required.");
   }
-
-  // 舊房間或未保護的房間 -> 允許進入 (為了相容性)
-  return next();
-}
-
-const lastSkipMessages = {}; // 儲存各房間最新的管理員切歌訊息 { room: message }
-const marquees = {}; // 儲存各房間的公告訊息 { room: { text: "...", timestamp: 123 } }
-
-// 取得房間 ID (預設為 'default')
-function getRoom(req) {
-  return req.query.room || req.body.room || 'default';
+  const base64 = auth.split(" ")[1];
+  const [user, pass] = Buffer.from(base64, "base64").toString().split(":");
+  if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    return next();
+  }
+  res.set("WWW-Authenticate", 'Basic realm="Protected Area"');
+  return res.status(401).send("Invalid credentials.");
 }
 
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
-async function readData(key, room, defaultVal) {
-  const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
+async function readData(key, defaultVal) {
+  const redisKey = key;
   
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
@@ -86,15 +76,13 @@ async function readData(key, room, defaultVal) {
   }
 
   // 檔案模式 fallback (當 DB 未設定、未連線或讀取失敗時)
-  const isDefault = room === 'default';
   let fileName;
-  if (key === 'admin_rooms') fileName = ADMIN_ROOMS_FILE;
-  else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
-  else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
-  else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
-  else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
-  else if (key === 'songs') fileName = isDefault ? SONGS_FILE : `songs_${room}.json`;
-  else if (key === 'settings') fileName = isDefault ? 'settings.json' : `settings_${room}.json`;
+  if (key === 'users') fileName = USERS_FILE;
+  else if (key === 'queue') fileName = 'requests.json';
+  else if (key === 'playlist') fileName = 'playlist.json';
+  else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
+  else if (key === 'songs') fileName = SONGS_FILE;
+  else if (key === 'settings') fileName = 'settings.json';
   else return defaultVal;
 
   try {
@@ -106,8 +94,8 @@ async function readData(key, room, defaultVal) {
   }
 }
 
-async function writeData(key, room, data) {
-  const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
+async function writeData(key, data) {
+  const redisKey = key;
   
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
@@ -118,15 +106,13 @@ async function writeData(key, room, data) {
   }
 
   // 檔案模式 fallback
-  const isDefault = room === 'default';
   let fileName;
-  if (key === 'admin_rooms') fileName = ADMIN_ROOMS_FILE;
-  else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
-  else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
-  else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
-  else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
-  else if (key === 'songs') fileName = isDefault ? SONGS_FILE : `songs_${room}.json`;
-  else if (key === 'settings') fileName = isDefault ? 'settings.json' : `settings_${room}.json`;
+  if (key === 'users') fileName = USERS_FILE;
+  else if (key === 'queue') fileName = 'requests.json';
+  else if (key === 'playlist') fileName = 'playlist.json';
+  else if (key === 'bannedWords') fileName = BANNED_WORDS_FILE;
+  else if (key === 'songs') fileName = SONGS_FILE;
+  else if (key === 'settings') fileName = 'settings.json';
   else return;
 
   try {
@@ -135,30 +121,33 @@ async function writeData(key, room, data) {
 }
 
 // 設定快取 (避免頻繁讀檔)
-const settingsCache = {};
-async function getSettings(room) {
-  if (!settingsCache[room]) {
-    settingsCache[room] = await readData('settings', room, DEFAULT_SETTINGS);
+let settingsCache = null;
+async function getSettings() {
+  if (!settingsCache) {
+    settingsCache = await readData('settings', DEFAULT_SETTINGS);
     // 合併預設值以防欄位缺失
-    settingsCache[room] = { ...DEFAULT_SETTINGS, ...settingsCache[room] };
+    settingsCache = { ...DEFAULT_SETTINGS, ...settingsCache };
   }
-  return settingsCache[room];
+  return settingsCache;
 }
-async function saveSettings(room, newSettings) {
-  const current = await getSettings(room);
-  settingsCache[room] = { ...current, ...newSettings };
-  await writeData('settings', room, settingsCache[room]);
+async function saveSettings(newSettings) {
+  const current = await getSettings();
+  settingsCache = { ...current, ...newSettings };
+  await writeData('settings', settingsCache);
 }
 
 // 為了相容舊程式碼的包裝 (改為 Async)
-const readQueue = (room) => readData('queue', room, []);
-const writeQueue = (room, q) => writeData('queue', room, q);
-const readUsers = (room) => readData('users', room, {});
-const writeUsers = (room, u) => writeData('users', room, u);
-const readBannedWords = (room) => readData('bannedWords', room, []);
-const writeBannedWords = (room, w) => writeData('bannedWords', room, w);
-const readSongs = (room) => readData('songs', room, {});
-const writeSongs = (room, s) => writeData('songs', room, s);
+const readQueue = () => readData('queue', []);
+const writeQueue = (q) => writeData('queue', q);
+const readUsers = () => readData('users', {});
+const writeUsers = (u) => writeData('users', u);
+const readBannedWords = () => readData('bannedWords', []);
+const writeBannedWords = (w) => writeData('bannedWords', w);
+const readSongs = () => readData('songs', {});
+const writeSongs = (s) => writeData('songs', s);
+
+let lastSkipMessage = null;
+let marquee = { text: "", timestamp: 0 };
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -188,52 +177,6 @@ async function fetchVideoInfo(videoId) {
 }
 
 // ----------------- API -----------------
-
-// 建立/登入房間 API
-app.post('/api/room/create', async (req, res) => {
-  const { room, adminLineId } = req.body;
-  
-  // 模式 1: 自動配對 (使用者沒傳 room，只傳 adminLineId)
-  if (!room && adminLineId) {
-    const adminRooms = await readData('admin_rooms', 'global', {});
-    let assignedRoom = adminRooms[adminLineId];
-    
-    if (!assignedRoom) {
-      // 產生隨機 6 碼房間 ID (大寫英文+數字)
-      assignedRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // 儲存對應關係
-      adminRooms[adminLineId] = assignedRoom;
-      await writeData('admin_rooms', 'global', adminRooms);
-      
-      // 初始化該房間設定
-      await saveSettings(assignedRoom, { adminLineId });
-    }
-    return res.json({ ok: true, room: assignedRoom, message: "進入您的專屬房間" });
-  }
-
-  if (!room || !adminLineId) return res.status(400).json({ error: "資料不完整" });
-
-  const settings = await getSettings(room);
-  
-  // 如果房間已存在且有綁定管理員
-  if (settings.adminLineId) {
-    if (settings.adminLineId === adminLineId) {
-      return res.json({ ok: true, message: "登入成功 (房間已存在)" });
-    } else {
-      return res.status(401).json({ error: "房間名稱已被其他人使用，請更換名稱" });
-    }
-  }
-
-  // 新房間，綁定管理員 LINE ID
-  await saveSettings(room, { adminLineId });
-  res.json({ ok: true, message: "房間建立成功" });
-});
-
-// 驗證密碼 API (供後台檢查用)
-app.post('/api/room/login', protect, (req, res) => {
-  res.json({ ok: true });
-});
 
 // Search YouTube (server-side, uses YT API key)
 app.get('/search', async (req, res) => {
@@ -266,7 +209,6 @@ const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdTREMsAAAAAHaezhLTPt
 app.post('/request', async (req, res) => {
   try {
     const { url, token, user } = req.body;
-    const room = getRoom(req);
 
     // 驗證 token 是否送來
     if (!token) {
@@ -275,7 +217,7 @@ app.post('/request', async (req, res) => {
     
     // 檢查使用者是否被停權
     if (user && user.userId) {
-      const users = await readUsers(room);
+      const users = await readUsers();
       if (users[user.userId] && users[user.userId].bannedUntil > Date.now()) {
         const minLeft = Math.ceil((users[user.userId].bannedUntil - Date.now()) / 60000);
         return res.status(403).json({ error: `您已被停權，請於 ${minLeft} 分鐘後再試` });
@@ -311,7 +253,7 @@ app.post('/request', async (req, res) => {
     }
     if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL or ID' });
 
-    const queue = await readQueue(room);
+    const queue = await readQueue();
     const already = queue.some(item => extractVideoId(item.url) === videoId);
     if (already) {
       return res.status(400).json({ error: '此歌曲已在排隊中，請選擇其他歌曲' });
@@ -321,7 +263,7 @@ app.post('/request', async (req, res) => {
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
 
     // 檢查違禁詞
-    const bannedWords = await readBannedWords(room);
+    const bannedWords = await readBannedWords();
     for (const word of bannedWords) {
       if (info.title.includes(word)) {
         return res.status(400).json({ error: `標題包含違禁詞「${word}」，無法點歌` });
@@ -329,24 +271,24 @@ app.post('/request', async (req, res) => {
     }
 
     // --- 記錄歌曲點播次數 ---
-    const songs = await readSongs(room);
+    const songs = await readSongs();
     if (!songs[videoId]) songs[videoId] = { count: 0 };
     songs[videoId].title = info.title;
     songs[videoId].thumbnail = info.thumbnail;
     songs[videoId].count = (songs[videoId].count || 0) + 1;
-    await writeSongs(room, songs);
+    await writeSongs(songs);
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
     
     // --- 記錄使用者點歌次數 ---
     if (user && user.userId) {
-      const users = await readUsers(room);
+      const users = await readUsers();
       if (!users[user.userId]) users[user.userId] = { count: 0 };
       
       users[user.userId].name = user.displayName; // 更新最新暱稱
       users[user.userId].picture = user.pictureUrl; // 更新最新頭貼
       users[user.userId].count = (users[user.userId].count || 0) + 1;
-      await writeUsers(room, users);
+      await writeUsers(users);
     }
     
     queue.push({ 
@@ -362,7 +304,7 @@ app.post('/request', async (req, res) => {
       queue.shift();
     }
 
-    await writeQueue(room, queue);
+    await writeQueue(queue);
 
     console.log('Added to queue:', info.title);
     return res.json({ ok: true, title: info.title });
@@ -376,9 +318,9 @@ app.post('/request', async (req, res) => {
 
 
 // 自動加入推薦歌曲 (Helper)
-async function autoAddSong(room, q) {
+async function autoAddSong(q) {
   try {
-    const songs = await readSongs(room);
+    const songs = await readSongs();
     const ids = Object.keys(songs);
     if (ids.length === 0) return;
 
@@ -397,7 +339,7 @@ async function autoAddSong(room, q) {
     };
     
     q.push(newItem);
-    await writeQueue(room, q);
+    await writeQueue(q);
     console.log('Auto-queued:', s.title);
   } catch (e) {
     console.error('Auto queue error:', e);
@@ -406,27 +348,25 @@ async function autoAddSong(room, q) {
 
 // Get next (first) item
 app.get('/next', async (req, res) => {
-  const room = getRoom(req);
-  const q = await readQueue(room);
-  const settings = await getSettings(room);
+  const q = await readQueue();
+  const settings = await getSettings();
   if (q.length === 0 && settings.autoQueue) {
-    await autoAddSong(room, q);
+    await autoAddSong(q);
   }
   res.json(q.length ? q[0] : { url: null, title: null, channel: null, thumbnail: null });
 });
 
 // Finish (pop first)
 app.post('/finish', async (req, res) => {
-  const room = getRoom(req);
-  const q = await readQueue(room);
+  const q = await readQueue();
   if (q.length) q.shift();
-  await writeQueue(room, q);
+  await writeQueue(q);
   res.json({ ok: true });
 });
 
 // 檢查投票是否過期 (Helper)
-async function checkVoteExpiry(room, q) {
-  const settings = await getSettings(room);
+async function checkVoteExpiry(q) {
+  const settings = await getSettings();
   if (q.length > 0) {
     const item = q[0];
     if (item.votes && item.voteStartTime) {
@@ -436,7 +376,7 @@ async function checkVoteExpiry(room, q) {
         item.votes = 0;
         item.votedIds = [];
         delete item.voteStartTime;
-        await writeQueue(room, q);
+        await writeQueue(q);
       }
     }
   }
@@ -444,12 +384,11 @@ async function checkVoteExpiry(room, q) {
 
 // 投票切歌 API
 app.post('/vote-skip', async (req, res) => {
-  const room = getRoom(req);
-  const q = await readQueue(room);
+  const q = await readQueue();
   if (q.length === 0) return res.status(400).json({ error: "目前沒有歌曲" });
 
   // 檢查是否過期
-  await checkVoteExpiry(room, q);
+  await checkVoteExpiry(q);
 
   const item = q[0];
   
@@ -468,7 +407,7 @@ app.post('/vote-skip', async (req, res) => {
   }
 
   // 檢查使用者是否被停權
-  const users = await readUsers(room);
+  const users = await readUsers();
   if (users[voterId] && users[voterId].bannedUntil > Date.now()) {
     const minLeft = Math.ceil((users[voterId].bannedUntil - Date.now()) / 60000);
     return res.status(403).json({ error: `您已被停權，無法投票。請於 ${minLeft} 分鐘後再試` });
@@ -484,18 +423,18 @@ app.post('/vote-skip', async (req, res) => {
   item.votedIds.push(voterId);
   item.votes = (item.votes || 0) + 1;
 
-  const settings = await getSettings(room);
+  const settings = await getSettings();
   if (item.votes >= settings.threshold) {
     // 執行停權 (5分鐘)
     if (item.requester && item.requester.id) {
-      const users = await readUsers(room);
+      const users = await readUsers();
       if (!users[item.requester.id]) users[item.requester.id] = {};
       users[item.requester.id].bannedUntil = Date.now() + settings.banDuration;
-      await writeUsers(room, users);
+      await writeUsers(users);
     }
 
     // 設定切歌訊息供前端顯示
-    lastSkipMessages[room] = {
+    lastSkipMessage = {
       type: 'vote',
       title: item.title,
       requester: item.requester ? item.requester.name : '未知',
@@ -504,26 +443,24 @@ app.post('/vote-skip', async (req, res) => {
     };
 
     q.shift(); // 移除目前歌曲
-    await writeQueue(room, q);
+    await writeQueue(q);
     return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
   }
 
-  await writeQueue(room, q);
+  await writeQueue(q);
   res.json({ ok: true, message: "投票成功", votes: item.votes });
 });
 
 // Get full queue
 app.get('/queue', async (req, res) => {
-  const room = getRoom(req);
-  const q = await readQueue(room);
-  await checkVoteExpiry(room, q); // 讀取時順便檢查過期
+  const q = await readQueue();
+  await checkVoteExpiry(q); // 讀取時順便檢查過期
   res.json(q);
 });
 
 // 排行榜 API
 app.get('/leaderboard', async (req, res) => {
-  const room = getRoom(req);
-  const users = await readUsers(room);
+  const users = await readUsers();
   // 轉為陣列並排序
   const list = Object.values(users).map(u => ({
     name: u.name,
@@ -536,8 +473,7 @@ app.get('/leaderboard', async (req, res) => {
 
 // 歌曲排行榜 API (Songs)
 app.get('/leaderboard/songs', async (req, res) => {
-  const room = getRoom(req);
-  const songs = await readSongs(room);
+  const songs = await readSongs();
   const list = Object.values(songs).map(s => ({
     title: s.title,
     thumbnail: s.thumbnail,
@@ -549,27 +485,24 @@ app.get('/leaderboard/songs', async (req, res) => {
 
 // Delete by index
 app.post('/delete/:index', async (req, res) => {
-  const room = getRoom(req);
   const idx = parseInt(req.params.index);
-  const q = await readQueue(room);
+  const q = await readQueue();
   if (!isNaN(idx) && idx >= 0 && idx < q.length) {
     q.splice(idx, 1);
-    await writeQueue(room, q);
+    await writeQueue(q);
   }
   res.json({ ok: true });
 });
 
 app.get('/playlist', async (req, res) => {
-  const room = getRoom(req);
-  const list = await readData('playlist', room, []);
+  const list = await readData('playlist', []);
   res.json(list);
 });
 
 app.post('/playlist/save', async (req, res) => {
   try {
-    const room = getRoom(req);
-    const q = await readQueue(room);
-    await writeData('playlist', room, q);
+    const q = await readQueue();
+    await writeData('playlist', q);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "save playlist error" });
@@ -578,11 +511,10 @@ app.post('/playlist/save', async (req, res) => {
 
 app.post('/playlist/load', async (req, res) => {
   try {
-    const room = getRoom(req);
-    const playlist = await readData('playlist', room, []);
+    const playlist = await readData('playlist', []);
     if (!playlist || playlist.length === 0) return res.json({ ok: false });
     
-    await writeQueue(room, playlist);
+    await writeQueue(playlist);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "load playlist error" });
@@ -591,8 +523,7 @@ app.post('/playlist/load', async (req, res) => {
 
 app.post('/playlist/clear', async (req, res) => {
   try {
-    const room = getRoom(req);
-    await writeData('playlist', room, []);
+    await writeData('playlist', []);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "clear playlist error" });
@@ -601,26 +532,22 @@ app.post('/playlist/clear', async (req, res) => {
 
 // 取得設定 (公開)
 app.get('/settings', async (req, res) => {
-  const room = getRoom(req);
-  const settings = await getSettings(room);
-  // 注意：不回傳 adminPassword
+  const settings = await getSettings();
   res.json({ 
     threshold: settings.threshold, 
     timeout: settings.timeout, 
     banDuration: settings.banDuration / 60000, 
     autoQueue: settings.autoQueue,
-    visualEffects: settings.visualEffects,
-    hasAdmin: !!settings.adminLineId
+    visualEffects: settings.visualEffects
   });
 });
 
 // 修改門檻 (管理員)
 app.post('/admin/threshold', protect, async (req, res) => {
-  const room = getRoom(req);
   const val = parseInt(req.body.threshold);
   if (val && val > 0) {
-    await saveSettings(room, { threshold: val });
-    const s = await getSettings(room);
+    await saveSettings({ threshold: val });
+    const s = await getSettings();
     res.json({ ok: true, threshold: s.threshold });
   } else {
     res.status(400).json({ error: "無效的數值" });
@@ -629,10 +556,9 @@ app.post('/admin/threshold', protect, async (req, res) => {
 
 // 修改停權時間 (管理員)
 app.post('/admin/ban-duration', protect, async (req, res) => {
-  const room = getRoom(req);
   const val = parseInt(req.body.banDuration);
   if (val && val > 0) {
-    await saveSettings(room, { banDuration: val * 60 * 1000 });
+    await saveSettings({ banDuration: val * 60 * 1000 });
     res.json({ ok: true, banDuration: val });
   } else {
     res.status(400).json({ error: "無效的數值" });
@@ -641,10 +567,9 @@ app.post('/admin/ban-duration', protect, async (req, res) => {
 
 // 修改自動推薦開關 (管理員)
 app.post('/admin/auto-queue', protect, async (req, res) => {
-  const room = getRoom(req);
   const { enabled } = req.body;
   if (typeof enabled === 'boolean') {
-    await saveSettings(room, { autoQueue: enabled });
+    await saveSettings({ autoQueue: enabled });
     res.json({ ok: true, autoQueue: enabled });
   } else {
     res.status(400).json({ error: "Invalid value" });
@@ -653,10 +578,9 @@ app.post('/admin/auto-queue', protect, async (req, res) => {
 
 // 修改舞台燈光特效開關 (管理員)
 app.post('/admin/visual-effects', protect, async (req, res) => {
-  const room = getRoom(req);
   const { enabled } = req.body;
   if (typeof enabled === 'boolean') {
-    await saveSettings(room, { visualEffects: enabled });
+    await saveSettings({ visualEffects: enabled });
     res.json({ ok: true, visualEffects: enabled });
   } else {
     res.status(400).json({ error: "Invalid value" });
@@ -665,16 +589,15 @@ app.post('/admin/visual-effects', protect, async (req, res) => {
 
 // 更改順序 (管理員)
 app.post('/admin/reorder', protect, async (req, res) => {
-  const room = getRoom(req);
   const { oldIndex, newIndex } = req.body;
-  const q = await readQueue(room);
+  const q = await readQueue();
   if (
     typeof oldIndex === 'number' && oldIndex >= 0 && oldIndex < q.length &&
     typeof newIndex === 'number' && newIndex >= 0 && newIndex < q.length
   ) {
     const [item] = q.splice(oldIndex, 1);
     q.splice(newIndex, 0, item);
-    await writeQueue(room, q);
+    await writeQueue(q);
     res.json({ ok: true });
   } else {
     res.status(400).json({ error: "無效的索引" });
@@ -683,28 +606,27 @@ app.post('/admin/reorder', protect, async (req, res) => {
 
 // 管理員強制切歌 (帶原因與圖片)
 app.post('/admin/skip', protect, async (req, res) => {
-  const room = getRoom(req);
   const { reason, image } = req.body;
-  const q = await readQueue(room);
-  const settings = await getSettings(room);
+  const q = await readQueue();
+  const settings = await getSettings();
   
   // 執行切歌邏輯
   let skippedItem = null;
   if (q.length > 0) {
     skippedItem = q.shift();
-    await writeQueue(room, q);
+    await writeQueue(q);
 
     // 執行停權 (5分鐘)
     if (skippedItem.requester && skippedItem.requester.id) {
-      const users = await readUsers(room);
+      const users = await readUsers();
       if (!users[skippedItem.requester.id]) users[skippedItem.requester.id] = {};
       users[skippedItem.requester.id].bannedUntil = Date.now() + settings.banDuration;
-      await writeUsers(room, users);
+      await writeUsers(users);
     }
   }
 
   // 紀錄訊息供前端顯示
-  lastSkipMessages[room] = {
+  lastSkipMessage = {
     type: 'admin',
     reason: reason || '',
     image: image || null,
@@ -719,8 +641,7 @@ app.post('/admin/skip', protect, async (req, res) => {
 
 // 取得停權名單 (管理員)
 app.get('/admin/banned-users', protect, async (req, res) => {
-  const room = getRoom(req);
-  const users = await readUsers(room);
+  const users = await readUsers();
   const now = Date.now();
   const list = [];
   
@@ -741,13 +662,12 @@ app.get('/admin/banned-users', protect, async (req, res) => {
 
 // 解除停權 (管理員)
 app.post('/admin/unban', protect, async (req, res) => {
-  const room = getRoom(req);
   const { userId } = req.body;
-  const users = await readUsers(room);
+  const users = await readUsers();
   
   if (users[userId]) {
     delete users[userId].bannedUntil;
-    await writeUsers(room, users);
+    await writeUsers(users);
     res.json({ ok: true });
   } else {
     res.status(404).json({ error: "找不到使用者" });
@@ -756,61 +676,47 @@ app.post('/admin/unban', protect, async (req, res) => {
 
 // --- 違禁詞管理 API ---
 app.get('/admin/banned-words', protect, async (req, res) => {
-  const room = getRoom(req);
-  const words = await readBannedWords(room);
+  const words = await readBannedWords();
   res.json(words);
 });
 
 app.post('/admin/banned-words/add', protect, async (req, res) => {
-  const room = getRoom(req);
   const { word } = req.body;
   if (!word || !word.trim()) return res.status(400).json({ error: "請輸入違禁詞" });
   
-  const words = await readBannedWords(room);
+  const words = await readBannedWords();
   if (!words.includes(word)) {
     words.push(word);
-    await writeBannedWords(room, words);
+    await writeBannedWords(words);
   }
   res.json({ ok: true });
 });
 
 app.post('/admin/banned-words/remove', protect, async (req, res) => {
-  const room = getRoom(req);
   const { word } = req.body;
-  const words = await readBannedWords(room);
+  const words = await readBannedWords();
   const newWords = words.filter(w => w !== word);
-  await writeBannedWords(room, newWords);
+  await writeBannedWords(newWords);
   res.json({ ok: true });
 });
 
 
 // 取得最新的切歌訊息
-app.get('/skip-message', (req, res) => {
-  const room = getRoom(req);
-  res.json(lastSkipMessages[room] || {});
-});
+app.get('/skip-message', (req, res) => res.json(lastSkipMessage || {}));
 
 // --- 公告跑馬燈 API ---
 app.post('/admin/marquee', protect, async (req, res) => {
-  const room = getRoom(req);
   const { text } = req.body;
   // 若 text 為空字串則代表清除
-  marquees[room] = { text: text || "", timestamp: Date.now() };
+  marquee = { text: text || "", timestamp: Date.now() };
   res.json({ ok: true });
 });
 
 app.get('/marquee', (req, res) => {
-  const room = getRoom(req);
-  res.json(marquees[room] || { text: "" });
+  res.json(marquee || { text: "" });
 });
 
 app.use((req, res, next) => {
-  // 僅保護 admin.html，display.html 開放方便使用
-  if (req.path === "/admin.html") {
-    // 這裡不直接阻擋 HTML 請求，而是讓前端 admin.html 自己跳出登入框
-    // 因為瀏覽器直接請求 HTML 時無法帶 header
-    // 所以我們只保護 API，HTML 頁面本身開放，但內容由 JS 控制
-  }
   next();
 });
 

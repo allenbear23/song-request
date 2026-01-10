@@ -103,6 +103,15 @@ button:hover { background: #0056b3; }
 </div>
 
 <div class="card">
+  <h3>📢 發送公告 (跑馬燈)</h3>
+  <div style="display:flex; gap:10px;">
+    <input type="text" id="marqueeInput" placeholder="輸入公告內容..." style="flex:1; width:auto;">
+    <button onclick="sendMarquee()">發送</button>
+    <button onclick="clearMarquee()" style="background:#666;">清除</button>
+  </div>
+</div>
+
+<div class="card">
   <h3>🚫 違禁詞管理 (標題過濾)</h3>
   <div style="display:flex; gap:10px; margin-bottom:10px;">
     <input type="text" id="bannedWordInput" placeholder="輸入違禁詞..." style="flex:1;">
@@ -330,6 +339,26 @@ button:hover { background: #0056b3; }
   function deleteItem(idx) { if(confirm('確定要刪除這首歌嗎？')) fetch('/delete/' + idx, { method: 'POST' }).then(refreshQueue); }
   function moveItem(oldIndex, newIndex) {
     fetch('/admin/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);
+  }
+
+  // --- 公告管理功能 ---
+  function sendMarquee() {
+    const text = document.getElementById('marqueeInput').value.trim();
+    if (!text) return;
+    fetch('/admin/marquee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    }).then(() => { alert('公告已發送'); document.getElementById('marqueeInput').value = ''; });
+  }
+
+  function clearMarquee() {
+    if(!confirm('確定要清除目前的公告嗎？')) return;
+    fetch('/admin/marquee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: "" })
+    }).then(() => alert('公告已清除'));
   }
 
   // --- 停權管理功能 ---

@@ -80,6 +80,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
     <a href="/create.html" style="font-size:12px; color:#aaa; text-decoration:none; margin-left:10px;">(建立房間)</a>
   </h1>
+  <button onclick="shareRoom()" style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤 分享此房間連結</button>
 
   <!-- 搜尋 -->
   <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" >
@@ -154,15 +155,9 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isMobile) {
-          // 強制使用 line:// 協議喚起 App (比 https 連結更暴力)
-          window.location.href = `line://app/${LIFF_ID}`;
-          
-          // 備用機制：如果使用者沒裝 LINE 或喚起失敗，1.5 秒後導向網頁版 LIFF
-          setTimeout(() => {
-            if (document.visibilityState === 'visible') {
-              window.location.href = `https://liff.line.me/${LIFF_ID}`;
-            }
-          }, 1500);
+          // 使用 Universal Link 喚起 LINE App 並帶入目前的 URL 參數 (?room=xxx)
+          // 這是確保參數能正確傳遞到 LIFF 頁面的標準做法
+          window.location.href = `https://liff.line.me/${LIFF_ID}${window.location.search}`;
         } else {
           // 電腦版：使用標準網頁登入
           liff.login({ redirectUri: window.location.href });
@@ -324,6 +319,20 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
   function closeLeaderboard() {
     document.getElementById('leaderboardOverlay').style.display = 'none';
+  }
+
+  // --- 分享功能 ---
+  function shareRoom() {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: '放歌啦 - 手機點歌',
+        text: '快來這個房間點歌！',
+        url: url
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(url).then(() => alert('連結已複製到剪貼簿！'));
+    }
   }
 </script>
 </body>

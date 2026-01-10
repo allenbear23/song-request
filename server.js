@@ -62,6 +62,7 @@ async function protect(req, res, next) {
 }
 
 const lastSkipMessages = {}; // 儲存各房間最新的管理員切歌訊息 { room: message }
+const marquees = {}; // 儲存各房間的公告訊息 { room: { text: "...", timestamp: 123 } }
 
 // 取得房間 ID (預設為 'default')
 function getRoom(req) {
@@ -763,6 +764,20 @@ app.post('/admin/banned-words/remove', protect, async (req, res) => {
 app.get('/skip-message', (req, res) => {
   const room = getRoom(req);
   res.json(lastSkipMessages[room] || {});
+});
+
+// --- 公告跑馬燈 API ---
+app.post('/admin/marquee', protect, async (req, res) => {
+  const room = getRoom(req);
+  const { text } = req.body;
+  // 若 text 為空字串則代表清除
+  marquees[room] = { text: text || "", timestamp: Date.now() };
+  res.json({ ok: true });
+});
+
+app.get('/marquee', (req, res) => {
+  const room = getRoom(req);
+  res.json(marquees[room] || { text: "" });
 });
 
 app.use((req, res, next) => {

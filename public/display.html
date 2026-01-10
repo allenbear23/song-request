@@ -155,6 +155,20 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 }
 </style>
 </head>
+<script>
+  // 自動將網址列的 ?room=xxx 參數帶入所有的 API 請求
+  (function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      // 處理相對路徑與絕對路徑
+      let urlObj;
+      try { urlObj = new URL(url, window.location.origin); } catch(e) { urlObj = new URL(window.location.origin + url); }
+      urlObj.searchParams.append('room', room);
+      return originalFetch(urlObj.toString(), options);
+    };
+  })();
+</script>
 <body>
 
 <!-- 啟動音效遮罩 (解決瀏覽器自動播放限制) -->
@@ -749,7 +763,9 @@ document.getElementById('startOverlay').addEventListener('click', async function
 
 <script>
 // QR Code 指向手機端點歌頁
-const qrUrl = "https://song-request67.onrender.com";
+const room = new URLSearchParams(window.location.search).get('room') || 'default';
+const qrUrl = `${window.location.origin}/?room=${encodeURIComponent(room)}`;
+
 document.getElementById("qrcode").src =
   "https://api.qrserver.com/v1/create-qr-code/?" +
   "size=200x200&data=" + encodeURIComponent(qrUrl) +

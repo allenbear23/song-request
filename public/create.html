@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>建立房間 - 放歌啦</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; background: #111; color: #eee; text-align: center; }
+h1 { margin-bottom: 30px; color: #fff; }
+.card { background: #222; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+input { padding: 12px; width: 80%; font-size: 18px; background: #333; border: 1px solid #555; color: #fff; border-radius: 6px; margin-bottom: 15px; text-align: center; }
+button { padding: 12px 30px; font-size: 18px; background: #007bff; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+button:hover { background: #0056b3; transform: scale(1.05); }
+.links { margin-top: 30px; display: none; text-align: left; border-top: 1px solid #333; padding-top: 20px; }
+.link-item { background: #1a1a1a; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+.link-item a { color: #4da3ff; text-decoration: none; font-weight: bold; word-break: break-all; }
+.link-label { font-size: 14px; color: #aaa; margin-bottom: 4px; }
+.btn-copy { background: #444; font-size: 14px; padding: 6px 12px; margin-left: 10px; }
+</style>
+</head>
+<body>
+
+<h1>🏠 建立或加入房間</h1>
+
+<div class="card">
+  <p style="color:#aaa; margin-bottom:20px;">輸入房間名稱 (例如: KTV01, Party, Wedding)</p>
+  <input type="text" id="roomInput" placeholder="設定房間 ID" onkeyup="if(event.key==='Enter') document.getElementById('passInput').focus()">
+  <br>
+  <input type="password" id="passInput" placeholder="設定管理員密碼" onkeyup="if(event.key==='Enter') createRoom()">
+  <br>
+  <button onclick="createRoom()">建立 / 進入房間</button>
+
+  <div id="resultArea" class="links">
+    <h3 style="margin-top:0;">🚀 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
+    
+    <div class="link-item">
+      <div style="flex:1">
+        <div class="link-label">🎤 點歌頁面 (給來賓)</div>
+        <a id="guestLink" href="#" target="_blank">...</a>
+      </div>
+      <button class="btn-copy" onclick="copyLink('guestLink')">複製</button>
+    </div>
+
+    <div class="link-item">
+      <div style="flex:1">
+        <div class="link-label">📺 播放頁面 (大螢幕)</div>
+        <a id="displayLink" href="#" target="_blank">...</a>
+      </div>
+      <button class="btn-copy" onclick="copyLink('displayLink')">複製</button>
+    </div>
+
+    <div class="link-item">
+      <div style="flex:1">
+        <div class="link-label">⚙️ 後台管理 (控制台)</div>
+        <a id="adminLink" href="#" target="_blank">...</a>
+      </div>
+      <button class="btn-copy" onclick="copyLink('adminLink')">複製</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
+    <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
+    <ol style="padding-left: 20px; margin: 0;">
+      <li>輸入<b>房間名稱</b>與<b>管理密碼</b>，點擊建立。</li>
+      <li>將<b>「點歌頁面」</b>連結分享給朋友，讓大家用手機點歌。</li>
+      <li>在電視或大螢幕上開啟<b>「播放頁面」</b>，享受音樂與燈光秀。</li>
+      <li>使用<b>「後台管理」</b>來切歌、設定違禁詞或調整系統參數。</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+function createRoom() {
+  const input = document.getElementById('roomInput');
+  const passInput = document.getElementById('passInput');
+  const room = input.value.trim() || 'default';
+  const password = passInput.value.trim();
+  const baseUrl = window.location.origin;
+
+  if (!password) {
+    alert("為了安全，請設定一組管理員密碼");
+    return;
+  }
+
+  fetch('/api/room/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ room, password })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      // 儲存密碼到 sessionStorage 方便直接登入
+      sessionStorage.setItem('room_password_' + room, password);
+
+      document.getElementById('roomNameDisplay').innerText = room;
+      
+      const guestUrl = `${baseUrl}/?room=${encodeURIComponent(room)}`;
+      const displayUrl = `${baseUrl}/display.html?room=${encodeURIComponent(room)}`;
+      const adminUrl = `${baseUrl}/admin.html?room=${encodeURIComponent(room)}`;
+
+      document.getElementById('guestLink').href = guestUrl;
+      document.getElementById('guestLink').innerText = guestUrl;
+      document.getElementById('displayLink').href = displayUrl;
+      document.getElementById('displayLink').innerText = displayUrl;
+      document.getElementById('adminLink').href = adminUrl;
+      document.getElementById('adminLink').innerText = adminUrl;
+
+      document.getElementById('resultArea').style.display = 'block';
+    } else {
+      alert(data.error || "建立失敗");
+    }
+  });
+}
+
+function copyLink(id) {
+  const url = document.getElementById(id).href;
+  navigator.clipboard.writeText(url).then(() => alert('已複製連結！'));
+}
+</script>
+
+</body>
+</html>

@@ -19,7 +19,38 @@ button:hover { background: #0056b3; }
 .btn-del { background: #dc3545; } .btn-del:hover { background: #c82333; }
 </style>
 </head>
+<script>
+  // 自動將網址列的 ?room=xxx 參數與密碼 Header 帶入所有的 API 請求
+  (function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      const password = sessionStorage.getItem('room_password_' + room) || '';
+      // 處理相對路徑與絕對路徑
+      let urlObj;
+      try { urlObj = new URL(url, window.location.origin); } catch(e) { urlObj = new URL(window.location.origin + url); }
+      urlObj.searchParams.append('room', room);
+      
+      options = options || {};
+      options.headers = options.headers || {};
+      options.headers['x-room-password'] = password;
+      
+      return originalFetch(urlObj.toString(), options);
+    };
+  })();
+</script>
 <body>
+
+<!-- 管理員登入遮罩 -->
+<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div style="background:#222; padding:30px; border-radius:10px; text-align:center; border:1px solid #444; width:300px;">
+    <h2 style="margin-top:0;">🔐 管理員登入</h2>
+    <p id="roomNameLabel" style="color:#aaa;"></p>
+    <input type="password" id="adminPasswordInput" placeholder="請輸入房間密碼" style="width:100%; box-sizing:border-box; margin-bottom:15px; text-align:center;">
+    <button onclick="doLogin()" style="width:100%; font-size:16px;">登入</button>
+    <p id="loginMsg" style="color:#ff4444; margin-top:10px; font-size:14px;"></p>
+  </div>
+</div>
 
 <h1>⚙️ 系統設定</h1>
 
@@ -91,12 +122,43 @@ button:hover { background: #0056b3; }
 <div class="card">
   <h3>其他功能</h3>
   <p>
-    <a href="/display.html" target="_blank" style="color:#4da3ff">開啟播放頁面</a> | 
-    <a href="/" target="_blank" style="color:#4da3ff">開啟點歌頁面</a>
+    <a href="#" onclick="openLink('/display.html')" style="color:#4da3ff">開啟播放頁面</a> | 
+    <a href="#" onclick="openLink('/')" style="color:#4da3ff">開啟點歌頁面</a>
   </p>
 </div>
 
 <script>
+  // --- 登入邏輯 ---
+  const currentRoom = new URLSearchParams(window.location.search).get('room') || 'default';
+  document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
+
+  function checkLogin() {
+    const pwd = sessionStorage.getItem('room_password_' + currentRoom);
+    if (pwd) {
+      // 嘗試驗證
+      fetch('/api/room/login')
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            initPage(); // 登入成功後載入資料
+          } else {
+            // 密碼失效
+            document.getElementById('loginOverlay').style.display = 'flex';
+          }
+        }).catch(() => document.getElementById('loginOverlay').style.display = 'flex');
+    } else {
+      document.getElementById('loginOverlay').style.display = 'flex';
+    }
+  }
+
+  function doLogin() {
+    const pwd = document.getElementById('adminPasswordInput').value;
+    sessionStorage.setItem('room_password_' + currentRoom, pwd);
+    checkLogin();
+  }
+
+  function initPage() {
   // 載入目前設定
   fetch('/settings')
     .then(r => r.json())
@@ -106,6 +168,16 @@ button:hover { background: #0056b3; }
       if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
       if (data.visualEffects !== undefined) document.getElementById('visualEffectsInput').checked = data.visualEffects;
     });
+    
+    refreshQueue();
+    refreshBannedList();
+    refreshBannedWords();
+  }
+
+  function openLink(path) {
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+    window.open(path + '?room=' + encodeURIComponent(room), '_blank');
+  }
 
   function saveThreshold() {
     const val = document.getElementById('thresholdInput').value;
@@ -345,9 +417,7 @@ button:hover { background: #0056b3; }
   }
 
   // 初始載入
-  refreshQueue();
-  refreshBannedList();
-  refreshBannedWords();
+  checkLogin();
 </script>
 
 </body>

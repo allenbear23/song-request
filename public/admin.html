@@ -169,7 +169,7 @@ button:hover { background: #0056b3; }
   }
 
   function loginLine() {
-    liff.login();
+    liff.login({ redirectUri: window.location.href });
   }
 
   function initPage() {

@@ -99,7 +99,7 @@ function initLiff() {
 }
 
 function loginLine() {
-  liff.login();
+  liff.login({ redirectUri: window.location.href });
 }
 
 function createRoom() {

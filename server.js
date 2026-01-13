@@ -719,18 +719,22 @@ app.get('/marquee', (req, res) => {
 
 // --- 彈幕 API ---
 app.post('/danmaku', async (req, res) => {
-  const { text, color, size, mode } = req.body;
+  const { text, color, size, mode, quantity } = req.body;
   if (!text) return res.status(400).json({ error: "Empty text" });
   
-  const msg = {
-    text: String(text).substring(0, 50), // 限制長度
-    color: color || '#ffffff',
-    size: size || 'medium',
-    mode: mode || 'scroll',
-    timestamp: Date.now()
-  };
-  
-  danmakuList.push(msg);
+  // 限制數量在 1 ~ 20 之間
+  const count = Math.max(1, Math.min(parseInt(quantity) || 1, 20));
+
+  for (let i = 0; i < count; i++) {
+    const msg = {
+      text: String(text).substring(0, 50), // 限制長度
+      color: color || '#ffffff',
+      size: size || 'medium',
+      mode: mode || 'scroll',
+      timestamp: Date.now() + i // 加上微小時間差確保順序
+    };
+    danmakuList.push(msg);
+  }
   
   // 保留最近 100 則，避免記憶體膨脹
   if (danmakuList.length > 100) {

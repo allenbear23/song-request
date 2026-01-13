@@ -112,6 +112,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         <option value="top">模式：頂部</option>
         <option value="bottom">模式：底部</option>
       </select>
+      <input type="number" id="danmakuQuantity" value="1" min="1" max="20" style="width:60px; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; text-align:center;" placeholder="數量">
     </div>
   </div>
 
@@ -328,6 +329,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     const colorInput = document.getElementById('danmakuColor');
     const sizeInput = document.getElementById('danmakuSize');
     const modeInput = document.getElementById('danmakuMode');
+    const quantityInput = document.getElementById('danmakuQuantity');
     const text = input.value.trim();
     
     if (!text) return;
@@ -335,7 +337,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     fetch('/danmaku', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text, color: colorInput.value, size: sizeInput.value, mode: modeInput.value })
+      body: JSON.stringify({ text: text, color: colorInput.value, size: sizeInput.value, mode: modeInput.value, quantity: quantityInput.value })
     })
     .then(r => r.json())
     .then(data => {

@@ -171,6 +171,43 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   0% { transform: translateX(0); }
   100% { transform: translateX(-100%); }
 }
+
+/* 彈幕樣式 */
+#danmaku-container {
+  position: fixed; top: 0; left: 0; width: 100%; height: 80%; /* 避開底部 */
+  pointer-events: none; z-index: 150; overflow: hidden;
+}
+.danmaku-item {
+  position: absolute;
+  white-space: nowrap;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 2px black;
+  font-family: "Microsoft JhengHei", sans-serif;
+  will-change: transform;
+  opacity: 0.9;
+}
+.danmaku-item.scroll {
+  animation: danmakuMove linear forwards;
+}
+.danmaku-item.fixed-top {
+  left: 50%;
+  transform: translateX(-50%);
+  animation: fadeOut 4s forwards;
+}
+.danmaku-item.fixed-bottom {
+  left: 50%;
+  transform: translateX(-50%);
+  animation: fadeOut 4s forwards;
+}
+@keyframes danmakuMove {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100%); }
+}
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
 </style>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
      crossorigin="anonymous"></script>
@@ -192,6 +229,9 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 <div id="marqueeContainer">
   <div id="marqueeText"></div>
 </div>
+
+<!-- 彈幕層 -->
+<div id="danmaku-container"></div>
 
 <div id="player-container">
   <div id="player"></div>
@@ -776,6 +816,67 @@ function checkMarquee() {
 }
 
 setInterval(checkMarquee, 3000);
+</script>
+
+<script>
+// --- 彈幕系統 ---
+let lastDanmakuTime = Date.now();
+
+function checkDanmaku() {
+  fetch('/danmaku?since=' + lastDanmakuTime)
+    .then(r => r.json())
+    .then(msgs => {
+      if (msgs && msgs.length > 0) {
+        // 更新最後時間戳記
+        const maxTime = Math.max(...msgs.map(m => m.timestamp));
+        if (maxTime > lastDanmakuTime) lastDanmakuTime = maxTime;
+        
+        msgs.forEach(msg => spawnDanmaku(msg));
+      }
+    })
+    .catch(e => console.error(e));
+}
+
+function spawnDanmaku(msg) {
+  const container = document.getElementById('danmaku-container');
+  if (!container) return;
+  
+  const el = document.createElement('div');
+  el.className = 'danmaku-item';
+  el.innerText = msg.text;
+  el.style.color = msg.color || '#fff';
+  
+  // 大小設定
+  let fontSize = '36px';
+  if (msg.size === 'small') fontSize = '24px';
+  if (msg.size === 'large') fontSize = '64px';
+  el.style.fontSize = fontSize;
+  
+  // 模式設定
+  if (msg.mode === 'top') {
+    el.classList.add('fixed-top');
+    el.style.top = (10 + Math.random() * 10) + '%'; // 稍微隨機避免完全重疊
+  } else if (msg.mode === 'bottom') {
+    el.classList.add('fixed-bottom');
+    el.style.bottom = (15 + Math.random() * 10) + '%';
+  } else {
+    // 預設滾動
+    el.classList.add('scroll');
+    el.style.top = Math.floor(Math.random() * 80) + '%';
+    const duration = 8 + Math.random() * 7;
+    el.style.animationDuration = duration + 's';
+  }
+  
+  container.appendChild(el);
+  
+  // 動畫結束後移除
+  setTimeout(() => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, duration * 1000 + 100);
+}
+
+// 每秒檢查一次彈幕
+setInterval(checkDanmaku, 1000);
 </script>
 
 <script>

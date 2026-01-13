@@ -148,6 +148,7 @@ const writeSongs = (s) => writeData('songs', s);
 
 let lastSkipMessage = null;
 let marquee = { text: "", timestamp: 0 };
+let danmakuList = []; // 彈幕列表
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -714,6 +715,36 @@ app.post('/admin/marquee', protect, async (req, res) => {
 
 app.get('/marquee', (req, res) => {
   res.json(marquee || { text: "" });
+});
+
+// --- 彈幕 API ---
+app.post('/danmaku', async (req, res) => {
+  const { text, color, size, mode } = req.body;
+  if (!text) return res.status(400).json({ error: "Empty text" });
+  
+  const msg = {
+    text: String(text).substring(0, 50), // 限制長度
+    color: color || '#ffffff',
+    size: size || 'medium',
+    mode: mode || 'scroll',
+    timestamp: Date.now()
+  };
+  
+  danmakuList.push(msg);
+  
+  // 保留最近 100 則，避免記憶體膨脹
+  if (danmakuList.length > 100) {
+    danmakuList = danmakuList.slice(-100);
+  }
+  
+  res.json({ ok: true });
+});
+
+app.get('/danmaku', (req, res) => {
+  const since = parseInt(req.query.since) || 0;
+  // 回傳比 since 新的訊息
+  const newMsgs = danmakuList.filter(m => m.timestamp > since);
+  res.json(newMsgs);
 });
 
 app.use((req, res, next) => {

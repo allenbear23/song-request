@@ -93,6 +93,28 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
   </div>
 
+  <!-- 彈幕發送區塊 -->
+  <div style="background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
+    <div style="font-size:13px; color:#aaa;">💬 發送彈幕</div>
+    <div style="display:flex; gap:8px; margin-top:5px;">
+      <input id="danmakuInput" placeholder="輸入彈幕內容..." style="flex:1; margin:0;">
+      <input type="color" id="danmakuColor" value="#ffffff" style="width:40px; padding:0; height:44px; border:none; background:none; cursor:pointer;">
+      <button onclick="sendDanmaku()" style="width:auto; margin:0; background:#007bff;">發送</button>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <select id="danmakuSize" style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
+        <option value="small">字體：小</option>
+        <option value="medium" selected>字體：中</option>
+        <option value="large">字體：大</option>
+      </select>
+      <select id="danmakuMode" style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
+        <option value="scroll" selected>模式：滾動</option>
+        <option value="top">模式：頂部</option>
+        <option value="bottom">模式：底部</option>
+      </select>
+    </div>
+  </div>
+
   <div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
       <div class="small" style="margin:0;">目前排隊：</div>
@@ -298,6 +320,35 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
   function closeLeaderboard() {
     document.getElementById('leaderboardOverlay').style.display = 'none';
+  }
+
+  // --- 彈幕功能 ---
+  function sendDanmaku() {
+    const input = document.getElementById('danmakuInput');
+    const colorInput = document.getElementById('danmakuColor');
+    const sizeInput = document.getElementById('danmakuSize');
+    const modeInput = document.getElementById('danmakuMode');
+    const text = input.value.trim();
+    
+    if (!text) return;
+    
+    fetch('/danmaku', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, color: colorInput.value, size: sizeInput.value, mode: modeInput.value })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        input.value = '';
+        // 簡單的成功回饋
+        const btn = document.querySelector('button[onclick="sendDanmaku()"]');
+        const originalText = btn.innerText;
+        btn.innerText = '已發送';
+        setTimeout(() => btn.innerText = originalText, 1000);
+      }
+    })
+    .catch(err => alert('發送失敗'));
   }
 
   // --- 分享功能 ---

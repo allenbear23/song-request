@@ -831,7 +831,10 @@ function checkDanmaku() {
         const maxTime = Math.max(...msgs.map(m => m.timestamp));
         if (maxTime > lastDanmakuTime) lastDanmakuTime = maxTime;
         
-        msgs.forEach(msg => spawnDanmaku(msg));
+        msgs.forEach((msg, i) => {
+          // 稍微錯開顯示時間 (每則間隔 150ms)，避免瞬間重疊
+          setTimeout(() => spawnDanmaku(msg), i * 150);
+        });
       }
     })
     .catch(e => console.error(e));
@@ -844,7 +847,13 @@ function spawnDanmaku(msg) {
   const el = document.createElement('div');
   el.className = 'danmaku-item';
   el.innerText = msg.text;
-  el.style.color = msg.color || '#fff';
+  
+  // 如果顏色是預設白色，則使用隨機亮色
+  if (!msg.color || msg.color === '#ffffff' || msg.color === '#fff') {
+    el.style.color = `hsl(${Math.floor(Math.random() * 360)}, 100%, 65%)`;
+  } else {
+    el.style.color = msg.color;
+  }
   
   // 大小設定
   let fontSize = '36px';
@@ -852,6 +861,8 @@ function spawnDanmaku(msg) {
   if (msg.size === 'large') fontSize = '64px';
   el.style.fontSize = fontSize;
   
+  let duration = 4; // 預設動畫時間 (給 top/bottom 用)
+
   // 模式設定
   if (msg.mode === 'top') {
     el.classList.add('fixed-top');
@@ -863,7 +874,7 @@ function spawnDanmaku(msg) {
     // 預設滾動
     el.classList.add('scroll');
     el.style.top = Math.floor(Math.random() * 80) + '%';
-    const duration = 8 + Math.random() * 7;
+    duration = 8 + Math.random() * 7;
     el.style.animationDuration = duration + 's';
   }
   

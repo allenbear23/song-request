@@ -196,8 +196,8 @@ button:hover { background: #0056b3; }
     url.searchParams.delete('liffClientId');
     url.searchParams.delete('liffRedirectUri');
     
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
       window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
     } else {
       liff.login({ redirectUri: url.toString() });

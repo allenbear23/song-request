@@ -191,6 +191,14 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
           updateLoginUI();
         });
       } else {
+        // 檢查是否為 App 跳轉失敗的 fallback (防止無限迴圈)
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('from_liff') === '1') {
+          url.searchParams.delete('from_liff');
+          // 嘗試過喚起 App 但失敗，改用標準 Web Login
+          liff.login({ redirectUri: url.toString() });
+          return;
+        }
         updateLoginUI();
       }
     }).catch(err => {
@@ -206,10 +214,17 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         // 直接登入，不需指定 redirectUri，避免參數錯誤導致無反應
         liff.login();
       } else {
-        // 情境 2: 外部瀏覽器 (Chrome/Safari/電腦)
-        // 直接呼叫 liff.login() 進行 OAuth 登入
-        // 移除原本的手機版 Universal Link 跳轉，避免在手機瀏覽器上因未開啟 LINE App 而導致登入狀態無法保存的迴圈
-        liff.login({ redirectUri: window.location.href });
+        // 情境 2: 外部瀏覽器
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          // 手機版：嘗試使用 LIFF URL 喚起 App，並加上標記以處理 fallback
+          const url = new URL(window.location.href);
+          url.searchParams.set('from_liff', '1');
+          window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
+        } else {
+          // 電腦版：直接使用 Web Login
+          liff.login({ redirectUri: window.location.href });
+        }
       }
     } catch (err) {
       alert('無法啟動登入: ' + err);

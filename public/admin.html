@@ -196,12 +196,9 @@ button:hover { background: #0056b3; }
     url.searchParams.delete('liffClientId');
     url.searchParams.delete('liffRedirectUri');
     
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
-    } else {
-      liff.login({ redirectUri: url.toString() });
-    }
+    // 改回使用標準 liff.login，確保登入後能回到目前的管理頁面 (admin.html)
+    // 使用 LIFF URL (https://liff.line.me/...) 會強制導向 LIFF 設定的首頁 (index.html)
+    liff.login({ redirectUri: url.toString() });
   }
 
   function initPage() {

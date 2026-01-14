@@ -96,16 +96,6 @@ function initLiff() {
     } else {
       document.getElementById('loginSection').style.display = 'block';
       
-      // Fallback 檢查
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('from_liff') === '1') {
-        url.searchParams.delete('from_liff');
-        url.searchParams.delete('code');
-        url.searchParams.delete('state');
-        liff.login({ redirectUri: url.toString() });
-        return;
-      }
-
       if(btn) btn.innerText = "LINE 登入";
     }
   }).catch(err => {
@@ -116,8 +106,6 @@ function initLiff() {
 }
 
 function loginLine() {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
   // 清除 URL 中的 LINE Login 參數，避免重複帶入導致錯誤
   const url = new URL(window.location.href);
   url.searchParams.delete('code');
@@ -125,12 +113,7 @@ function loginLine() {
   url.searchParams.delete('liffClientId');
   url.searchParams.delete('liffRedirectUri');
   
-  if (isMobile) {
-    url.searchParams.set('from_liff', '1');
-    window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
-  } else {
-    liff.login({ redirectUri: url.toString() });
-  }
+  liff.login({ redirectUri: url.toString() });
 }
 
 function createRoom() {

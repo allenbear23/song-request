@@ -191,14 +191,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
           updateLoginUI();
         });
       } else {
-        // 檢查是否為 App 跳轉失敗的 fallback (防止無限迴圈)
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('from_liff') === '1') {
-          url.searchParams.delete('from_liff');
-          // 嘗試過喚起 App 但失敗，改用標準 Web Login
-          liff.login({ redirectUri: url.toString() });
-          return;
-        }
         updateLoginUI();
       }
     }).catch(err => {
@@ -215,16 +207,17 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         liff.login();
       } else {
         // 情境 2: 外部瀏覽器
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
-          // 手機版：嘗試使用 LIFF URL 喚起 App，並加上標記以處理 fallback
-          const url = new URL(window.location.href);
-          url.searchParams.set('from_liff', '1');
-          window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
-        } else {
-          // 電腦版：直接使用 Web Login
-          liff.login({ redirectUri: window.location.href });
-        }
+        // 為了確保在各種瀏覽器 (包含 Chrome/Android) 都能正常登入，
+        // 我們統一使用標準的 liff.login() 流程，而不強制喚起 App。
+        const url = new URL(window.location.href);
+        // 清除可能存在的舊參數，避免干擾
+        url.searchParams.delete('code');
+        url.searchParams.delete('state');
+        url.searchParams.delete('liffClientId');
+        url.searchParams.delete('liffRedirectUri');
+        url.searchParams.delete('from_liff');
+        
+        liff.login({ redirectUri: url.toString() });
       }
     } catch (err) {
       alert('無法啟動登入: ' + err);

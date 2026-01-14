@@ -91,7 +91,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     免費的線上點歌系統，適合派對、活動、店家使用。<br>
     手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。
   </p>
-  <button onclick="createRandomRoom()" style="background:#007bff; font-size:24px; padding:15px 40px; border-radius:50px; box-shadow:0 0 20px rgba(0,123,255,0.5);">
+  <button onclick="window.location.href='/create.html'" style="background:#007bff; font-size:24px; padding:15px 40px; border-radius:50px; box-shadow:0 0 20px rgba(0,123,255,0.5);">
     🚀 立即建立房間
   </button>
   <div style="margin-top:40px; font-size:14px; color:#666;">
@@ -170,11 +170,6 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     document.getElementById('landingPage').style.display = 'block';
   } else {
     document.getElementById('roomPage').style.display = 'block';
-  }
-
-  function createRandomRoom() {
-    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    window.location.href = `/?room=${roomId}`;
   }
 
   // --- LINE LIFF 設定 ---

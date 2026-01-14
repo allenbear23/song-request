@@ -763,3 +763,13 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// --- 防止 Render 休眠 (Self-Ping) ---
+// 請在 Render 後台設定環境變數 RENDER_EXTERNAL_URL = 你的網站網址 (例如 https://xxx.onrender.com)
+if (process.env.RENDER_EXTERNAL_URL) {
+  setInterval(() => {
+    fetch(`${process.env.RENDER_EXTERNAL_URL}/health`)
+      .then(() => console.log('Keep-alive ping success'))
+      .catch(e => console.error('Keep-alive ping failed', e));
+  }, 14 * 60 * 1000); // 每 14 分鐘發送一次請求
+}

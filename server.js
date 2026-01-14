@@ -36,7 +36,7 @@ const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 // 預設設定
 const DEFAULT_SETTINGS = {
   threshold: 3, timeout: 60000, banDuration: 5 * 60 * 1000,
-  autoQueue: true, visualEffects: true
+  autoQueue: true, visualEffects: false
 };
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳

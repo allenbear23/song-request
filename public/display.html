@@ -313,7 +313,7 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 </div>
 
 <script>
-let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0, visualEffectsEnabled = true;
+let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0, visualEffectsEnabled = false;
 
 // --- 顏色分析引擎 ---
 let lastThumbnailUrl = '', currentThemeHue = 0, useThemeColor = false;
@@ -489,7 +489,7 @@ function refreshQueueSidebar() {
   // 使用 Promise.all 同時取得 queue 與 settings，並加入錯誤處理與 Cache Busting
   Promise.all([
     fetch('/queue?_=' + Date.now()).then(r => r.json()),
-    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000}).catch(() => ({threshold:3, timeout:60000}))
+    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000, visualEffects: false}).catch(() => ({threshold:3, timeout:60000, visualEffects: false}))
   ]).then(([queue, settings]) => {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;

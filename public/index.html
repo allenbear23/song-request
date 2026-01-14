@@ -168,6 +168,7 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   const currentRoom = new URLSearchParams(window.location.search).get('room');
   if (!currentRoom) {
     document.getElementById('landingPage').style.display = 'block';
+    document.getElementById('loginOverlay').style.display = 'none';
   } else {
     document.getElementById('roomPage').style.display = 'block';
   }
@@ -218,6 +219,12 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   function updateLoginUI() {
     const overlay = document.getElementById('loginOverlay');
     const globalUser = document.getElementById('globalUserInfo');
+
+    // 如果沒有房間代碼 (Landing Page)，就不顯示登入遮罩
+    if (!currentRoom) {
+      overlay.style.display = 'none';
+      return;
+    }
 
     if (currentLineProfile) {
       overlay.style.display = 'none';

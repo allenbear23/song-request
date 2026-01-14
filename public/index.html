@@ -32,6 +32,21 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
      crossorigin="anonymous"></script>
 </head>
+<script>
+  // 自動將網址列的 ?room=xxx 參數帶入所有的 API 請求
+  (function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      // 處理相對路徑與絕對路徑
+      let urlObj;
+      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+      if (urlObj.origin !== window.location.origin) return originalFetch(url, options);
+      urlObj.searchParams.append('room', room);
+      return originalFetch(urlObj.toString(), options);
+    };
+  })();
+</script>
 <!-- 引入 LINE LIFF SDK -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <body>
@@ -69,7 +84,22 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
   </div>
 </div>
 
-<div class="container">
+<!-- 著陸頁 (Landing Page) -->
+<div id="landingPage" style="display:none; text-align:center; padding:40px 20px; color:#fff;">
+  <h1 style="font-size:48px; margin-bottom:20px; color:#00ffcc;">放歌啦 🎵</h1>
+  <p style="font-size:18px; color:#ccc; max-width:600px; margin:0 auto 40px;">
+    免費的線上點歌系統，適合派對、活動、店家使用。<br>
+    手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。
+  </p>
+  <button onclick="createRandomRoom()" style="background:#007bff; font-size:24px; padding:15px 40px; border-radius:50px; box-shadow:0 0 20px rgba(0,123,255,0.5);">
+    🚀 立即建立房間
+  </button>
+  <div style="margin-top:40px; font-size:14px; color:#666;">
+    無需註冊，即開即用
+  </div>
+</div>
+
+<div class="container" id="roomPage" style="display:none;">
   <h1 style="display:flex; justify-content:space-between; align-items:center;">
     手機點歌
     <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
@@ -134,6 +164,19 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 
 <script src="request.js"></script>
 <script>
+  // --- 頁面路由邏輯 ---
+  const currentRoom = new URLSearchParams(window.location.search).get('room');
+  if (!currentRoom) {
+    document.getElementById('landingPage').style.display = 'block';
+  } else {
+    document.getElementById('roomPage').style.display = 'block';
+  }
+
+  function createRandomRoom() {
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    window.location.href = `/?room=${roomId}`;
+  }
+
   // --- LINE LIFF 設定 ---
   const RECAPTCHA_SITE_KEY = '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs';
   // ⚠️ 請將此處替換為你在 LINE Developers 申請的 LIFF ID

@@ -215,12 +215,12 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
         url.searchParams.delete('liffRedirectUri');
         url.searchParams.delete('from_liff');
         
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
-          // 手機版：強制使用 LIFF URL 嘗試喚起 App
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        if (isAndroid) {
+          // Android: 強制使用 LIFF URL 嘗試喚起 App (解決 Chrome 阻擋問題)
           window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
         } else {
-          // 電腦版：使用網頁登入
+          // iOS / 電腦: 使用 SDK 標準登入 (iOS 18.5+ 相容性較佳)
           liff.login({ redirectUri: url.toString() });
         }
       }

@@ -105,6 +105,10 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
     <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
   </h1>
   <button onclick="shareRoom()" style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤 分享此房間連結</button>
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <button onclick="goToPage('/admin.html')" style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">⚙️ 管理後台</button>
+    <button onclick="goToPage('/display.html')" style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">📺 播放頁面</button>
+  </div>
 
   <!-- 搜尋 -->
   <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" >
@@ -431,6 +435,15 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
       }).catch(console.error);
     } else {
       navigator.clipboard.writeText(url).then(() => alert('連結已複製到剪貼簿！'));
+    }
+  }
+
+  function goToPage(path) {
+    const room = new URLSearchParams(window.location.search).get('room');
+    if (room) {
+      window.location.href = `${path}?room=${encodeURIComponent(room)}`;
+    } else {
+      window.location.href = path;
     }
   }
 </script>

@@ -36,7 +36,7 @@ const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 // 預設設定
 const DEFAULT_SETTINGS = {
   threshold: 3, timeout: 60000, banDuration: 5 * 60 * 1000,
-  autoQueue: true, visualEffects: false
+  autoQueue: true
 };
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
@@ -583,8 +583,7 @@ app.get('/settings', async (req, res) => {
     threshold: settings.threshold, 
     timeout: settings.timeout, 
     banDuration: settings.banDuration / 60000, 
-    autoQueue: settings.autoQueue,
-    visualEffects: settings.visualEffects
+    autoQueue: settings.autoQueue
   });
 });
 
@@ -620,18 +619,6 @@ app.post('/admin/auto-queue', protect, async (req, res) => {
   if (typeof enabled === 'boolean') {
     await saveSettings(room, { autoQueue: enabled });
     res.json({ ok: true, autoQueue: enabled });
-  } else {
-    res.status(400).json({ error: "Invalid value" });
-  }
-});
-
-// 修改舞台燈光特效開關 (管理員)
-app.post('/admin/visual-effects', protect, async (req, res) => {
-  const room = getRoom(req);
-  const { enabled } = req.body;
-  if (typeof enabled === 'boolean') {
-    await saveSettings(room, { visualEffects: enabled });
-    res.json({ ok: true, visualEffects: enabled });
   } else {
     res.status(400).json({ error: "Invalid value" });
   }

@@ -149,14 +149,6 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* 舞台燈光特效 */
-#stage-lights {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: 90;
-  box-shadow: inset 0 0 0 rgba(0,0,0,0);
-  transition: box-shadow 0.5s ease;
-}
-
 /* 跑馬燈樣式 */
 #marqueeContainer {
   position: fixed; top: 0; left: 0; width: 100%; height: 50px;
@@ -236,12 +228,8 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 <div id="startOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;color:#fff;">
   <div style="font-size:40px;">🔊</div>
   <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
-  <p style="color:#aaa;">點擊以啟用音效與<b>即時燈光同步</b></p>
-  <p style="color:#ffeb3b; font-size:14px; margin-top:10px;">(請在彈出視窗選擇<b>「目前分頁」</b>並勾選<b>「分享音訊」</b>以獲得最佳效果)</p>
+  <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
 </div>
-
-<!-- 舞台燈光層 -->
-<div id="stage-lights"></div>
 
 <!-- 公告跑馬燈 -->
 <div id="marqueeContainer">
@@ -313,53 +301,10 @@ body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-f
 </div>
 
 <script>
-let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0, visualEffectsEnabled = false;
-
-// --- 顏色分析引擎 ---
-let lastThumbnailUrl = '', currentThemeHue = 0, useThemeColor = false;
-// 新增即時影像擷取變數
-let captureVideo = document.createElement('video');
-captureVideo.muted = true;
-captureVideo.autoplay = true;
-captureVideo.playsInline = true;
-let colorCtx = null;
-
-function updateThemeColor(url) {
-  const img = new Image();
-  img.crossOrigin = "Anonymous"; // 嘗試跨域讀取圖片
-  img.src = url;
-  img.onload = () => {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1; canvas.height = 1;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      
-      // RGB 轉 HSL 計算色相 (Hue)
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      let h = 0;
-      if (max !== min) {
-        const d = max - min;
-        switch (max) {
-          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-          case g: h = (b - r) / d + 2; break;
-          case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-      }
-      currentThemeHue = h * 360;
-      useThemeColor = true;
-    } catch (e) {
-      console.warn("無法提取封面顏色 (CORS 限制):", e);
-      useThemeColor = false;
-    }
-  };
-  img.onerror = () => { useThemeColor = false; };
-}
+let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
 
 // --- 音效引擎 (Web Audio API) ---
-let audioCtx, gainNode, analyser, dataArray;
+let audioCtx, gainNode;
 
 function initAudio() {
   const audio = document.getElementById('voteSound');
@@ -383,35 +328,6 @@ function initAudio() {
   // 2. 確保 Context 處於運作狀態
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume();
-  }
-}
-
-async function setupVisualizer() {
-  try {
-    // 改用 getDisplayMedia 直接讀取分頁音訊 (無雜音、高品質)
-    // 注意：這會跳出螢幕分享視窗，必須選擇「目前分頁」並勾選「分享音訊」
-    const stream = await navigator.mediaDevices.getDisplayMedia({ 
-      video: true, // 必須請求 video 才能抓取 tab audio
-      audio: true 
-    });
-    
-    // 連接影像串流以進行顏色分析
-    captureVideo.srcObject = stream;
-    captureVideo.play().catch(e => console.error("影像播放失敗", e));
-    
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512; // 解析度
-    analyser.smoothingTimeConstant = 0.6; // 降低平滑度讓節奏更強烈
-    
-    const source = audioCtx.createMediaStreamSource(stream);
-    source.connect(analyser);
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    
-  } catch (e) {
-    console.error("無法啟用燈光同步 (使用者取消或未分享音訊):", e);
-    // 不阻擋流程，只是沒燈光
   }
 }
 
@@ -451,12 +367,6 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: () => checkNext(),
       onStateChange: (e) => {
-        // 控制舞台燈光
-        if (e.data === YT.PlayerState.PLAYING) {
-          startLightShow();
-        } else {
-          stopLightShow();
-        }
         if (e.data === YT.PlayerState.ENDED) {
           fetch('/finish', { method: 'POST' }).then(() => checkNext());
         }
@@ -489,31 +399,12 @@ function refreshQueueSidebar() {
   // 使用 Promise.all 同時取得 queue 與 settings，並加入錯誤處理與 Cache Busting
   Promise.all([
     fetch('/queue?_=' + Date.now()).then(r => r.json()),
-    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000, visualEffects: false}).catch(() => ({threshold:3, timeout:60000, visualEffects: false}))
+    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000}).catch(() => ({threshold:3, timeout:60000}))
   ]).then(([queue, settings]) => {
     voteThreshold = settings.threshold;
     voteTimeout = settings.timeout;
-    
-    // 更新特效設定
-    const effectsOn = settings.visualEffects !== false; // 預設為開啟
-    if (visualEffectsEnabled !== effectsOn) {
-      visualEffectsEnabled = effectsOn;
-      if (!visualEffectsEnabled) stopLightShow();
-      else if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) startLightShow();
-    }
 
     currentQueue = queue;
-    
-    // 偵測封面變更並更新主題色
-    if (queue.length > 0) {
-      if (queue[0].thumbnail !== lastThumbnailUrl) {
-        lastThumbnailUrl = queue[0].thumbnail;
-        updateThemeColor(lastThumbnailUrl);
-      }
-    } else {
-      useThemeColor = false;
-      lastThumbnailUrl = '';
-    }
 
     // 自動同步播放器：如果佇列第一首跟目前播放的不一樣，就切歌
     if (queue.length > 0) {
@@ -612,131 +503,6 @@ setInterval(() => {
 // 獨立的計時器更新迴圈 (每秒)
 setInterval(updateVoteTimerUI, 1000);
 
-// --- 舞台燈光模擬節奏引擎 ---
-let lightFrame;
-function startLightShow() {
-  if (!visualEffectsEnabled) return;
-  const lights = document.getElementById('stage-lights');
-  const playerContainer = document.getElementById('player-container');
-
-  if (!lights) return;
-  lights.style.transition = 'box-shadow 0.05s ease'; // 讓跳動更靈敏
-  if (playerContainer) playerContainer.style.transition = 'transform 0.05s ease';
-  
-  
-  function loop() {
-    lightFrame = requestAnimationFrame(loop);
-
-    const time = Date.now();
-    // 模擬 120 BPM 的重拍 (每 500ms 一次峰值)
-    // 使用 sin^6 函數產生尖銳的脈衝感，模擬重低音
-    const beat = Math.pow((Math.sin(time / 250 * Math.PI) + 1) / 2, 6);
-    
-    // 根據螢幕寬度調整強度係數 (基準 1200px，大螢幕會放大效果)
-    const sizeFactor = Math.max(1, window.innerWidth / 1200);
-
-    // 隨機強度 + 節奏脈衝 (增強版)
-    const intensity = (60 + (beat * 350) + (Math.random() * 30)) * sizeFactor;
-    
-    // 決定燈光顏色 (使用封面主色 或 彩虹流動)
-    let hue = (time / 20) % 360;
-    if (useThemeColor) {
-      hue = currentThemeHue + Math.sin(time / 2000) * 20; // 在主色附近輕微波動
-    }
-    
-    // 模擬模式的 Strobe 效果 (當 beat 強度 > 0.8 時爆閃)
-    if (beat > 0.8) {
-      lights.style.boxShadow = `inset 0 0 ${intensity * 1.2}px rgba(255,255,255,0.8), inset 0 0 ${intensity * 2.5}px hsla(${hue}, 100%, 70%, 0.8)`;
-    } else {
-      lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 90%, 50%, 0.8), inset 0 0 ${intensity * 2}px hsla(${hue}, 90%, 50%, 0.4)`;
-    }
-    
-    // 模擬震動 (無音訊時)
-    if (playerContainer) playerContainer.style.transform = `scale(${1 + beat * 0.04})`;
-
-    // --- 即時影像顏色分析 ---
-    if (captureVideo && captureVideo.readyState >= 2) {
-      if (!colorCtx) {
-        const c = document.createElement('canvas');
-        c.width = 1; c.height = 1;
-        colorCtx = c.getContext('2d', { willReadFrequently: true });
-      }
-      try {
-        // 取畫面中央 50% 區域平均色，避免受邊緣燈光影響
-        colorCtx.drawImage(captureVideo, 
-          captureVideo.videoWidth * 0.25, captureVideo.videoHeight * 0.25, 
-          captureVideo.videoWidth * 0.5, captureVideo.videoHeight * 0.5, 
-          0, 0, 1, 1);
-        
-        const [r, g, b] = colorCtx.getImageData(0, 0, 1, 1).data;
-        
-        // RGB 轉 HSL
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h = 0;
-        if (max !== min) {
-          const d = max - min;
-          switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-          }
-          h /= 6;
-        }
-        // 平滑更新色相
-        const targetHue = h * 360;
-        // 簡單緩動，若跨越 0/360 邊界則直接切換
-        if (Math.abs(targetHue - currentThemeHue) > 180) {
-             currentThemeHue = targetHue;
-        } else {
-             currentThemeHue += (targetHue - currentThemeHue) * 0.1;
-        }
-        useThemeColor = true;
-      } catch (e) { /* 忽略 */ }
-    }
-
-    if (analyser && dataArray) {
-      analyser.getByteFrequencyData(dataArray);
-      
-      // 取低頻 (Bass) 平均值 (前 4 個頻段)
-      let bass = 0;
-      for(let i=0; i<4; i++) bass += dataArray[i];
-      bass = bass / 4;
-      
-      // 數值正規化與視覺效果
-      const level = Math.pow(bass / 255, 2); // 平方讓重拍更明顯
-      const intensity = (50 + (level * 600)) * sizeFactor;
-      
-      if (level > 0.05) {
-        // 真實音訊的 Strobe 效果 (當低頻強度 > 0.45 時爆閃)
-        if (level > 0.45) {
-          lights.style.boxShadow = `inset 0 0 ${intensity * 1.2}px rgba(255,255,255,0.9), inset 0 0 ${intensity * 2.5}px hsla(${hue}, 100%, 60%, 0.9)`;
-        } else {
-          lights.style.boxShadow = `inset 0 0 ${intensity}px hsla(${hue}, 100%, 50%, 0.9), inset 0 0 ${intensity * 2}px hsla(${hue}, 100%, 50%, 0.5)`;
-        }
-        // 真實震動 (有音訊時覆蓋模擬，最大放大 1.08 倍)
-        if (playerContainer) playerContainer.style.transform = `scale(${1 + level * 0.08})`;
-      } else {
-        lights.style.boxShadow = 'none';
-        if (playerContainer) playerContainer.style.transform = 'scale(1)';
-      }
-    }
-  }
-  loop();
-}
-
-function stopLightShow() {
-  if (lightFrame) cancelAnimationFrame(lightFrame);
-  const lights = document.getElementById('stage-lights');
-  const playerContainer = document.getElementById('player-container');
-  if (lights) {
-    lights.style.transition = 'box-shadow 0.5s ease';
-    lights.style.boxShadow = 'none';
-  }
-  if (playerContainer) {
-    playerContainer.style.transition = 'transform 0.5s ease';
-    playerContainer.style.transform = 'scale(1)';
-  }
-}
 </script>
 
 <script>
@@ -929,9 +695,6 @@ document.getElementById('startOverlay').addEventListener('click', async function
       audio.currentTime = 0; 
     }).catch(e => console.error("音效解鎖失敗", e));
   }
-  
-  // 啟用視覺化 (請求麥克風)
-  await setupVisualizer();
   
   this.style.display = 'none';
 });

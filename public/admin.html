@@ -60,7 +60,7 @@ button:hover { background: #0056b3; }
     <h2 style="margin-top:0;">🔐 管理員登入</h2>
     <p id="roomNameLabel" style="color:#aaa;"></p>
     <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
-    <button id="btnLogin" onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
+    <button id="btnLogin" onclick="goToIndexLogin()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">前往首頁登入</button>
   </div>
 </div>
 
@@ -154,10 +154,33 @@ button:hover { background: #0056b3; }
   const currentRoom = new URLSearchParams(window.location.search).get('room') || 'default';
   document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
 
-  function initLiff() {
+  function checkLoginAndInit() {
     const btn = document.getElementById('btnLogin');
-    if(btn) btn.innerText = "載入中...";
+    
+    // 1. 優先檢查 sessionStorage (從 index.html 帶過來的登入狀態)
+    const storedUserId = sessionStorage.getItem('line_user_id');
+    if (storedUserId) {
+      fetch('/api/room/login')
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            initPage();
+            return; // 驗證成功，直接結束，不需執行 LIFF init
+          } else {
+            // 驗證失敗 (可能換房間了)，清除舊 ID 並繼續執行 LIFF 流程
+            sessionStorage.removeItem('line_user_id');
+            startLiffFlow(btn);
+          }
+        }).catch(() => startLiffFlow(btn));
+    } else {
+      startLiffFlow(btn);
+    }
+  }
 
+  function startLiffFlow(btn) {
+    if(btn) btn.innerText = "載入中...";
+    
     liff.init({ liffId: LIFF_ID }).then(() => {
       if (liff.isLoggedIn()) {
         liff.getProfile().then(profile => {
@@ -179,26 +202,20 @@ button:hover { background: #0056b3; }
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
         
-        if(btn) btn.innerText = "LINE 登入驗證";
+        if(btn) btn.innerText = "前往首頁登入";
       }
     }).catch(err => {
       console.error('LIFF Init Error', err);
-      alert('LINE 登入初始化失敗: ' + err);
-      if(btn) btn.innerText = "LINE 登入驗證 (重試)";
+      // LIFF 初始化失敗時，也顯示遮罩引導回首頁
+      document.getElementById('loginOverlay').style.display = 'flex';
+      if(btn) btn.innerText = "前往首頁登入";
     });
   }
 
-  function loginLine() {
-    // 清除 URL 中的 LINE Login 參數
-    const url = new URL(window.location.href);
-    url.searchParams.delete('code');
-    url.searchParams.delete('state');
-    url.searchParams.delete('liffClientId');
-    url.searchParams.delete('liffRedirectUri');
-    
-    // 改回使用標準 liff.login，確保登入後能回到目前的管理頁面 (admin.html)
-    // 使用 LIFF URL (https://liff.line.me/...) 會強制導向 LIFF 設定的首頁 (index.html)
-    liff.login({ redirectUri: url.toString() });
+  function goToIndexLogin() {
+    // 引導使用者回首頁登入，並帶上目前的房間參數
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+    window.location.href = `/?room=${encodeURIComponent(room)}`;
   }
 
   function initPage() {
@@ -480,7 +497,7 @@ button:hover { background: #0056b3; }
   }
 
   // 初始載入
-  initLiff();
+  checkLoginAndInit();
 </script>
 
 </body>

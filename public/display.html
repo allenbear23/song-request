@@ -675,6 +675,23 @@ setInterval(checkDanmaku, 1000);
 </script>
 
 <script>
+// --- 音量同步 ---
+let currentServerVolume = 100;
+
+function checkVolume() {
+  fetch('/settings').then(r => r.json()).then(settings => {
+    if (settings.volume !== undefined && settings.volume !== currentServerVolume) {
+      currentServerVolume = settings.volume;
+      if (player && typeof player.setVolume === 'function') {
+        player.setVolume(currentServerVolume);
+      }
+    }
+  }).catch(() => {});
+}
+setInterval(checkVolume, 1000);
+</script>
+
+<script>
 function showSuccessAnimation() {
   const el = document.getElementById('successOverlay');
   el.style.display = 'flex';

@@ -91,6 +91,14 @@ button:hover { background: #0056b3; }
 </div>
 
 <div class="card">
+  <h3>🔊 音量控制</h3>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <input type="range" id="volumeInput" min="0" max="100" value="100" oninput="updateVolumeLabel()" onchange="saveVolume()" style="flex:1;">
+    <span id="volumeLabel" style="font-weight:bold; width:40px; text-align:right;">100%</span>
+  </div>
+</div>
+
+<div class="card">
   <h3>🎵 播放佇列管理</h3>
   <div style="margin-bottom:10px; display:flex; gap:10px;">
     <button onclick="refreshQueue()">🔄 重新整理</button>
@@ -229,6 +237,10 @@ button:hover { background: #0056b3; }
       document.getElementById('thresholdInput').value = data.threshold;
       if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
       if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
+      if (data.volume !== undefined) {
+        document.getElementById('volumeInput').value = data.volume;
+        document.getElementById('volumeLabel').innerText = data.volume + '%';
+      }
     });
     
     refreshQueue();
@@ -284,6 +296,20 @@ button:hover { background: #0056b3; }
       else alert(data.error);
     })
     .catch(err => alert("儲存失敗"));
+  }
+
+  function updateVolumeLabel() {
+    const val = document.getElementById('volumeInput').value;
+    document.getElementById('volumeLabel').innerText = val + '%';
+  }
+
+  function saveVolume() {
+    const val = document.getElementById('volumeInput').value;
+    fetch('/admin/volume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ volume: val })
+    });
   }
 
   // --- 佇列管理功能 ---

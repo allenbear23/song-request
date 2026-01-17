@@ -36,7 +36,7 @@ const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 // 預設設定
 const DEFAULT_SETTINGS = {
   threshold: 3, timeout: 60000, banDuration: 5 * 60 * 1000,
-  autoQueue: true
+  autoQueue: true, volume: 100
 };
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
@@ -583,7 +583,8 @@ app.get('/settings', async (req, res) => {
     threshold: settings.threshold, 
     timeout: settings.timeout, 
     banDuration: settings.banDuration / 60000, 
-    autoQueue: settings.autoQueue
+    autoQueue: settings.autoQueue,
+    volume: settings.volume !== undefined ? settings.volume : 100
   });
 });
 
@@ -619,6 +620,18 @@ app.post('/admin/auto-queue', protect, async (req, res) => {
   if (typeof enabled === 'boolean') {
     await saveSettings(room, { autoQueue: enabled });
     res.json({ ok: true, autoQueue: enabled });
+  } else {
+    res.status(400).json({ error: "Invalid value" });
+  }
+});
+
+// 修改音量 (管理員)
+app.post('/admin/volume', protect, async (req, res) => {
+  const room = getRoom(req);
+  const val = parseInt(req.body.volume);
+  if (!isNaN(val) && val >= 0 && val <= 100) {
+    await saveSettings(room, { volume: val });
+    res.json({ ok: true, volume: val });
   } else {
     res.status(400).json({ error: "Invalid value" });
   }

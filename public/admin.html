@@ -183,21 +183,28 @@ button:hover { background: #0056b3; }
     
     liff.init({ liffId: LIFF_ID }).then(() => {
       if (liff.isLoggedIn()) {
-        liff.getProfile().then(profile => {
+        liff.getProfile()
+        .then(profile => {
           // 儲存 ID 供 fetch interceptor 使用
           sessionStorage.setItem('line_user_id', profile.userId);
           
           // 驗證是否為該房間管理員
-          fetch('/api/room/login')
-            .then(r => r.json())
-            .then(data => {
-              if (data.ok) {
-                document.getElementById('loginOverlay').style.display = 'none';
-                initPage();
-              } else {
-                alert(data.error || '權限不足：您不是此房間的管理員');
-              }
-            });
+          return fetch('/api/room/login');
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            initPage();
+          } else {
+            alert(data.error || '權限不足：您不是此房間的管理員');
+            if(btn) btn.innerText = "LINE 登入驗證";
+          }
+        })
+        .catch(err => {
+          console.error('Profile/Login Error', err);
+          alert('登入驗證失敗: ' + err);
+          if(btn) btn.innerText = "LINE 登入驗證 (重試)";
         });
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';

@@ -60,7 +60,7 @@ button:hover { background: #0056b3; }
     <h2 style="margin-top:0;">🔐 管理員登入</h2>
     <p id="roomNameLabel" style="color:#aaa;"></p>
     <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
-    <button id="btnLogin" onclick="goToIndexLogin()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">前往首頁登入</button>
+    <button id="btnLogin" onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
   </div>
 </div>
 
@@ -202,20 +202,22 @@ button:hover { background: #0056b3; }
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
         
-        if(btn) btn.innerText = "前往首頁登入";
+        if(btn) btn.innerText = "LINE 登入驗證";
       }
     }).catch(err => {
       console.error('LIFF Init Error', err);
-      // LIFF 初始化失敗時，也顯示遮罩引導回首頁
-      document.getElementById('loginOverlay').style.display = 'flex';
-      if(btn) btn.innerText = "前往首頁登入";
+      alert('LINE 登入初始化失敗: ' + err);
+      if(btn) btn.innerText = "LINE 登入驗證 (重試)";
     });
   }
 
-  function goToIndexLogin() {
-    // 引導使用者回首頁登入，並帶上目前的房間參數
-    const room = new URLSearchParams(window.location.search).get('room') || 'default';
-    window.location.href = `/?room=${encodeURIComponent(room)}`;
+  function loginLine() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('code');
+    url.searchParams.delete('state');
+    url.searchParams.delete('liffClientId');
+    url.searchParams.delete('liffRedirectUri');
+    liff.login({ redirectUri: url.toString() });
   }
 
   function initPage() {

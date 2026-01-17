@@ -191,6 +191,26 @@ app.post('/api/room/create', async (req, res) => {
   return res.json({ ok: true, room: assignedRoom, message: "進入您的專屬房間" });
 });
 
+// 驗證房間管理權限 API
+app.get('/api/room/login', async (req, res) => {
+  const room = getRoom(req);
+  const clientLineId = req.headers['x-line-user-id'];
+
+  const settings = await getSettings(room);
+  
+  // 如果房間有設定管理員 LINE ID
+  if (settings.adminLineId) {
+    if (settings.adminLineId === clientLineId) {
+      return res.json({ ok: true });
+    } else {
+      return res.status(401).json({ error: "權限不足 (非此房間管理員)" });
+    }
+  }
+  
+  // 如果沒設定管理員 (舊房間或開放房間)，允許
+  res.json({ ok: true });
+});
+
 // Search YouTube (server-side, uses YT API key)
 app.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();

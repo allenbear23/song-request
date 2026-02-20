@@ -1,46 +1,185 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<title>手機點歌</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="免費的線上點歌系統，適合派對、活動、店家使用。手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。">
-<meta name="keywords" content="點歌系統, YouTube點歌, 手機點歌, 線上KTV, 派對遊戲, 互動網頁, 放歌啦">
-<meta property="og:title" content="放歌啦 - 手機點歌系統">
-<meta property="og:description" content="派對活動必備！手機掃碼立即點歌，支援彈幕互動與舞台燈光效果。">
-<meta property="og:type" content="website">
-<!-- 建議將 content 修改為您網站的實際預覽圖片網址 -->
-<meta property="og:image" content="https://via.placeholder.com/1200x630?text=Song+Request">
-<style>
-body { font-family: Arial; max-width: 720px; margin: 18px auto; padding: 14px; background: #0b0b0b; color: #f5f5f5; }
-.container { background: #0f0f0f; padding: 14px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
-/* LINE 登入按鈕樣式 */
-#lineLoginBtn { background: #06c755; color: #fff; font-weight: bold; }
-h1 { margin: 6px 0 12px; font-size: 20px; color: #fff; }
-input, button { width: 100%; padding: 12px; font-size: 16px; margin-top: 8px; border-radius:6px; border: none; }
-input { background: #111; color: #fff; }
-button { background: #ff4444; color: #fff; font-weight: bold; }
-.small { font-size: 13px; color: #bbb; margin-top: 8px; }
-.search-result { display:flex; background:#121212; padding:10px; margin-top:8px; border-radius:8px; cursor:pointer; }
-.search-result img { width:120px; height:70px; object-fit:cover; margin-right:10px; border-radius:6px; }
-.title { font-weight:700; color:#fff; }
-.channel { color:#aaa; font-size:13px; margin-top:6px; }
-#msg { margin-top:10px; color:#7fffd4; font-weight:600; }
-#queueList li { margin-top:8px; color:#fff; font-size:14px; }
-hr { border:0; height:1px; background:#222; margin:12px 0; }
-</style>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
-     crossorigin="anonymous"></script>
+  <meta charset="utf-8">
+  <title>手機點歌</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="免費的線上點歌系統，適合派對、活動、店家使用。手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。">
+  <meta name="keywords" content="點歌系統, YouTube點歌, 手機點歌, 線上KTV, 派對遊戲, 互動網頁, 放歌啦">
+  <meta property="og:title" content="放歌啦 - 手機點歌系統">
+  <meta property="og:description" content="派對活動必備！手機掃碼立即點歌，支援彈幕互動與舞台燈光效果。">
+  <meta property="og:type" content="website">
+  <!-- 建議將 content 修改為您網站的實際預覽圖片網址 -->
+  <meta property="og:image" content="https://via.placeholder.com/1200x630?text=Song+Request">
+  <style>
+    body {
+      font-family: Arial;
+      max-width: 720px;
+      margin: 18px auto;
+      padding: 14px;
+      background: #0b0b0b;
+      color: #f5f5f5;
+    }
+
+    .container {
+      background: #0f0f0f;
+      padding: 14px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    /* LINE 登入按鈕樣式 */
+    #lineLoginBtn {
+      background: #06c755;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    h1 {
+      margin: 6px 0 12px;
+      font-size: 20px;
+      color: #fff;
+    }
+
+    input,
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 8px;
+      border-radius: 6px;
+      border: none;
+    }
+
+    input {
+      background: #111;
+      color: #fff;
+    }
+
+    button {
+      background: #ff4444;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #bbb;
+      margin-top: 8px;
+    }
+
+    .search-result {
+      display: flex;
+      background: #121212;
+      padding: 10px;
+      margin-top: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .search-result img {
+      width: 120px;
+      height: 70px;
+      object-fit: cover;
+      margin-right: 10px;
+      border-radius: 6px;
+    }
+
+    .title {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .channel {
+      color: #aaa;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    #msg {
+      margin-top: 10px;
+      color: #7fffd4;
+      font-weight: 600;
+    }
+
+    #queueList li {
+      margin-top: 8px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    hr {
+      border: 0;
+      height: 1px;
+      background: #222;
+      margin: 12px 0;
+    }
+
+    /* Waves */
+    .waves-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 20vh;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .waves {
+      width: 100%;
+      height: 100%;
+      margin-bottom: -7px;
+    }
+
+    .parallax>use {
+      animation: move-forever 25s cubic-bezier(.55, .5, .45, .5) infinite;
+    }
+
+    .parallax>use:nth-child(1) {
+      animation-delay: -2s;
+      animation-duration: 7s;
+    }
+
+    .parallax>use:nth-child(2) {
+      animation-delay: -3s;
+      animation-duration: 10s;
+    }
+
+    .parallax>use:nth-child(3) {
+      animation-delay: -4s;
+      animation-duration: 13s;
+    }
+
+    .parallax>use:nth-child(4) {
+      animation-delay: -5s;
+      animation-duration: 20s;
+    }
+
+    @keyframes move-forever {
+      0% {
+        transform: translate3d(-90px, 0, 0);
+      }
+
+      100% {
+        transform: translate3d(85px, 0, 0);
+      }
+    }
+  </style>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
+    crossorigin="anonymous"></script>
 </head>
 <script>
   // 自動將網址列的 ?room=xxx 參數帶入所有的 API 請求
-  (function() {
+  (function () {
     const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
+    window.fetch = function (url, options) {
       const room = new URLSearchParams(window.location.search).get('room') || 'default';
       // 處理相對路徑與絕對路徑
       let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+      try { urlObj = new URL(url, window.location.origin); } catch (e) { return originalFetch(url, options); }
       if (urlObj.origin !== window.location.origin) return originalFetch(url, options);
       urlObj.searchParams.append('room', room);
       return originalFetch(urlObj.toString(), options);
@@ -49,321 +188,418 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
 </script>
 <!-- 引入 LINE LIFF SDK -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
 <body>
   <!-- public/index.html (加入於 <head> 或 <body> 之前) -->
-<!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
-<!-- 改用 reCAPTCHA v3 -->
-<script src="https://www.google.com/recaptcha/api.js?render=6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs"></script>
-<!-- 全域登入遮罩 (卡片) -->
-<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;">
-  <div style="background:#1f1f1f; padding:30px; border-radius:16px; text-align:center; box-shadow:0 4px 30px rgba(0,0,0,0.8); max-width:85%; width:300px; border:1px solid #333;">
-    <h2 style="margin:0 0 15px; color:#fff;">🎵 手機點歌</h2>
-    <p style="color:#aaa; margin-bottom:25px; line-height:1.5;">為了防止濫用<br>請先登入 LINE 帳號以繼續</p>
-    <button onclick="handleLineLogin()" style="background:#06c755; color:#fff; font-weight:bold; padding:12px 24px; border-radius:30px; width:100%; font-size:16px;">
-      LINE 登入
+  <!-- 使用 reCAPTCHA v2 Invisible（使用 grecaptcha.execute 取得 token）-->
+  <!-- 改用 reCAPTCHA v3 -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs"></script>
+  <!-- 全域登入遮罩 (卡片) -->
+  <div id="loginOverlay"
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <div
+      style="background:#1f1f1f; padding:30px; border-radius:16px; text-align:center; box-shadow:0 4px 30px rgba(0,0,0,0.8); max-width:85%; width:300px; border:1px solid #333;">
+      <h2 style="margin:0 0 15px; color:#fff;">🎵 手機點歌</h2>
+      <p style="color:#aaa; margin-bottom:25px; line-height:1.5;">為了防止濫用<br>請先登入 LINE 帳號以繼續</p>
+      <button onclick="handleLineLogin()"
+        style="background:#06c755; color:#fff; font-weight:bold; padding:12px 24px; border-radius:30px; width:100%; font-size:16px;">
+        LINE 登入
+      </button>
+      2 <p style="color:#666; font-size:12px; margin-top:15px;">(若瀏覽器詢問是否打開 LINE，請點擊「打開」)</p>
+    </div>
+  </div>
+
+  <!-- 排行榜遮罩 -->
+  <div id="leaderboardOverlay"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
+    <div
+      style="background:#1f1f1f; width:90%; max-width:360px; max-height:80%; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.8); border:1px solid #333; overflow:hidden;">
+      <div
+        style="padding:15px 20px; background:#252525; border-bottom:1px solid #333; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:10px;">
+          <h3 style="margin:0; color:#ffeb3b; font-size:18px;">🏆 排行榜</h3>
+          <button onclick="closeLeaderboard()"
+            style="background:none; border:none; color:#aaa; font-size:24px; padding:0; width:auto; line-height:1; cursor:pointer;">&times;</button>
+        </div>
+        <div style="display:flex; gap:10px; width:100%;">
+          <button onclick="switchLeaderboard('users')" id="tab-users"
+            style="flex:1; padding:8px; background:#444; border:none; color:#fff; border-radius:4px; font-size:14px; font-weight:bold;">點歌達人</button>
+          <button onclick="switchLeaderboard('songs')" id="tab-songs"
+            style="flex:1; padding:8px; background:#222; border:1px solid #444; color:#aaa; border-radius:4px; font-size:14px;">熱門歌曲</button>
+        </div>
+      </div>
+      <div id="leaderboardList" style="flex:1; overflow-y:auto; padding:0 15px;">
+        <!-- JS 填入內容 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 著陸頁 (Landing Page) -->
+  <div id="landingPage" style="display:none; text-align:center; padding:40px 20px; color:#fff;">
+    <div style="display:flex; justify-content:center; margin-bottom: 20px;">
+      <svg width="200" height="100" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="barGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#ff4444" />
+            <stop offset="50%" stop-color="#007bff" />
+            <stop offset="100%" stop-color="#00ffcc" />
+          </linearGradient>
+          <style>
+            .eq-bar {
+              fill: url(#barGrad);
+              animation: bounce 1s infinite alternate ease-in-out;
+              transform-origin: bottom;
+            }
+
+            .eq-bar:nth-child(1) {
+              animation-delay: 0.1s;
+              animation-duration: 0.6s;
+            }
+
+            .eq-bar:nth-child(2) {
+              animation-delay: 0.3s;
+              animation-duration: 0.8s;
+            }
+
+            .eq-bar:nth-child(3) {
+              animation-delay: 0s;
+              animation-duration: 0.5s;
+            }
+
+            .eq-bar:nth-child(4) {
+              animation-delay: 0.4s;
+              animation-duration: 0.9s;
+            }
+
+            .eq-bar:nth-child(5) {
+              animation-delay: 0.2s;
+              animation-duration: 0.7s;
+            }
+
+            .eq-bar:nth-child(6) {
+              animation-delay: 0.5s;
+              animation-duration: 0.8s;
+            }
+
+            .eq-bar:nth-child(7) {
+              animation-delay: 0.1s;
+              animation-duration: 0.6s;
+            }
+
+            @keyframes bounce {
+              0% {
+                transform: scaleY(0.2);
+              }
+
+              100% {
+                transform: scaleY(1);
+              }
+            }
+          </style>
+        </defs>
+        <rect class="eq-bar" x="20" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="45" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="70" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="95" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="120" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="145" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+        <rect class="eq-bar" x="170" y="20" width="15" height="60" rx="7.5" ry="7.5" />
+      </svg>
+    </div>
+    <h1 style="font-size:48px; margin-bottom:20px; color:#00ffcc; text-shadow: 0 0 20px rgba(0,255,204,0.5);">放歌啦 🎵
+    </h1>
+    <p style="font-size:18px; color:#ccc; max-width:600px; margin:0 auto 40px;">
+      免費的線上點歌系統，適合派對、活動、店家使用。<br>
+      手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。
+    </p>
+    <button onclick="window.location.href='/create.html'"
+      style="background:#007bff; font-size:24px; padding:15px 40px; border-radius:50px; box-shadow:0 0 20px rgba(0,123,255,0.5);">
+      🚀 立即建立房間
     </button>
-    <p style="color:#666; font-size:12px; margin-top:15px;">(若瀏覽器詢問是否打開 LINE，請點擊「打開」)</p>
+    <div style="margin-top:40px; font-size:14px; color:#666;">
+      無需註冊，即開即用
+    </div>
   </div>
-</div>
 
-<!-- 排行榜遮罩 -->
-<div id="leaderboardOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
-  <div style="background:#1f1f1f; width:90%; max-width:360px; max-height:80%; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.8); border:1px solid #333; overflow:hidden;">
-    <div style="padding:15px 20px; background:#252525; border-bottom:1px solid #333; display:flex; flex-direction:column;">
-      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:10px;">
-        <h3 style="margin:0; color:#ffeb3b; font-size:18px;">🏆 排行榜</h3>
-        <button onclick="closeLeaderboard()" style="background:none; border:none; color:#aaa; font-size:24px; padding:0; width:auto; line-height:1; cursor:pointer;">&times;</button>
+  <div class="container" id="roomPage" style="display:none;">
+    <h1 style="display:flex; justify-content:space-between; align-items:center;">
+      手機點歌
+      <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
+    </h1>
+    <button onclick="shareRoom()"
+      style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤
+      分享此房間連結</button>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <button onclick="goToPage('/admin.html')"
+        style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">⚙️
+        管理後台</button>
+      <button onclick="goToPage('/display.html')"
+        style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">📺
+        播放頁面</button>
+    </div>
+
+    <!-- 搜尋 -->
+    <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…">
+    <button onclick="searchYT()">搜尋</button>
+    <div id="searchList"></div>
+
+
+    <hr>
+
+    <!-- 貼連結 -->
+    <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）">
+    <button onclick="sendRequestFromInput()">貼上加入佇列</button>
+    <div id="msg"></div>
+
+    <hr>
+
+    <!-- 投票切歌區塊 -->
+    <div id="voteSection"
+      style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
+      <div style="font-size:13px; color:#aaa;">🎵 正在播放</div>
+      <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
+
+      <!-- LINE 登入與投票控制區 -->
+      <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span
+          id="voteCount"></span></button>
+    </div>
+
+    <!-- 彈幕發送區塊 -->
+    <div style="background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
+      <div style="font-size:13px; color:#aaa;">💬 發送彈幕</div>
+      <div style="display:flex; gap:8px; margin-top:5px;">
+        <input id="danmakuInput" placeholder="輸入彈幕內容..." style="flex:1; margin:0;">
+        <input type="color" id="danmakuColor" value="#ffffff"
+          style="width:40px; padding:0; height:44px; border:none; background:none; cursor:pointer;">
+        <button onclick="sendDanmaku()" style="width:auto; margin:0; background:#007bff;">發送</button>
       </div>
-      <div style="display:flex; gap:10px; width:100%;">
-        <button onclick="switchLeaderboard('users')" id="tab-users" style="flex:1; padding:8px; background:#444; border:none; color:#fff; border-radius:4px; font-size:14px; font-weight:bold;">點歌達人</button>
-        <button onclick="switchLeaderboard('songs')" id="tab-songs" style="flex:1; padding:8px; background:#222; border:1px solid #444; color:#aaa; border-radius:4px; font-size:14px;">熱門歌曲</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <select id="danmakuSize"
+          style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
+          <option value="small">字體：小</option>
+          <option value="medium" selected>字體：中</option>
+          <option value="large">字體：大</option>
+        </select>
+        <select id="danmakuMode"
+          style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
+          <option value="scroll" selected>模式：滾動</option>
+          <option value="top">模式：頂部</option>
+          <option value="bottom">模式：底部</option>
+        </select>
+        <input type="number" id="danmakuQuantity" value="1" min="1" max="20"
+          style="width:60px; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; text-align:center;"
+          placeholder="數量">
       </div>
     </div>
-    <div id="leaderboardList" style="flex:1; overflow-y:auto; padding:0 15px;">
-      <!-- JS 填入內容 -->
-    </div>
-  </div>
-</div>
 
-<!-- 著陸頁 (Landing Page) -->
-<div id="landingPage" style="display:none; text-align:center; padding:40px 20px; color:#fff;">
-  <h1 style="font-size:48px; margin-bottom:20px; color:#00ffcc;">放歌啦 🎵</h1>
-  <p style="font-size:18px; color:#ccc; max-width:600px; margin:0 auto 40px;">
-    免費的線上點歌系統，適合派對、活動、店家使用。<br>
-    手機掃描 QR Code 即可點歌，支援 YouTube 搜尋、即時彈幕與燈光特效。
-  </p>
-  <button onclick="window.location.href='/create.html'" style="background:#007bff; font-size:24px; padding:15px 40px; border-radius:50px; box-shadow:0 0 20px rgba(0,123,255,0.5);">
-    🚀 立即建立房間
-  </button>
-  <div style="margin-top:40px; font-size:14px; color:#666;">
-    無需註冊，即開即用
-  </div>
-</div>
-
-<div class="container" id="roomPage" style="display:none;">
-  <h1 style="display:flex; justify-content:space-between; align-items:center;">
-    手機點歌
-    <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
-  </h1>
-  <button onclick="shareRoom()" style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤 分享此房間連結</button>
-  <div style="display:flex; gap:10px; margin-bottom:10px;">
-    <button onclick="goToPage('/admin.html')" style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">⚙️ 管理後台</button>
-    <button onclick="goToPage('/display.html')" style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">📺 播放頁面</button>
-  </div>
-
-  <!-- 搜尋 -->
-  <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" >
-  <button onclick="searchYT()">搜尋</button>
-  <div id="searchList"></div>
-
-
-  <hr>
-
-  <!-- 貼連結 -->
-  <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）">
-  <button onclick="sendRequestFromInput()">貼上加入佇列</button>
-  <div id="msg"></div>
-
-  <hr>
-
-  <!-- 投票切歌區塊 -->
-  <div id="voteSection" style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
-    <div style="font-size:13px; color:#aaa;">🎵 正在播放</div>
-    <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
-    
-    <!-- LINE 登入與投票控制區 -->
-    <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span id="voteCount"></span></button>
-  </div>
-
-  <!-- 彈幕發送區塊 -->
-  <div style="background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
-    <div style="font-size:13px; color:#aaa;">💬 發送彈幕</div>
-    <div style="display:flex; gap:8px; margin-top:5px;">
-      <input id="danmakuInput" placeholder="輸入彈幕內容..." style="flex:1; margin:0;">
-      <input type="color" id="danmakuColor" value="#ffffff" style="width:40px; padding:0; height:44px; border:none; background:none; cursor:pointer;">
-      <button onclick="sendDanmaku()" style="width:auto; margin:0; background:#007bff;">發送</button>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:8px;">
-      <select id="danmakuSize" style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
-        <option value="small">字體：小</option>
-        <option value="medium" selected>字體：中</option>
-        <option value="large">字體：大</option>
-      </select>
-      <select id="danmakuMode" style="flex:1; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px;">
-        <option value="scroll" selected>模式：滾動</option>
-        <option value="top">模式：頂部</option>
-        <option value="bottom">模式：底部</option>
-      </select>
-      <input type="number" id="danmakuQuantity" value="1" min="1" max="20" style="width:60px; padding:8px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; text-align:center;" placeholder="數量">
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+        <div class="small" style="margin:0;">目前排隊：</div>
+        <div onclick="showLeaderboard()"
+          style="font-size:13px; color:#ffeb3b; cursor:pointer; padding:4px 8px; background:#333; border-radius:4px; border:1px solid #444;">
+          🏆 查看排行榜</div>
+      </div>
+      <ul id="queueList"></ul>
     </div>
   </div>
 
-  <div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
-      <div class="small" style="margin:0;">目前排隊：</div>
-      <div onclick="showLeaderboard()" style="font-size:13px; color:#ffeb3b; cursor:pointer; padding:4px 8px; background:#333; border-radius:4px; border:1px solid #444;">🏆 查看排行榜</div>
-    </div>
-    <ul id="queueList"></ul>
-  </div>
-</div>
-
-<script src="request.js"></script>
-<script>
-  // --- 頁面路由邏輯 ---
-  const currentRoom = new URLSearchParams(window.location.search).get('room');
-  if (!currentRoom) {
-    document.getElementById('landingPage').style.display = 'block';
-    document.getElementById('loginOverlay').style.display = 'none';
-  } else {
-    document.getElementById('roomPage').style.display = 'block';
-  }
-
-  // --- LINE LIFF 設定 ---
-  const RECAPTCHA_SITE_KEY = '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs';
-  // ⚠️ 請將此處替換為你在 LINE Developers 申請的 LIFF ID
-  const LIFF_ID = '2008832076-eA3l2ogi'; 
-  let currentLineProfile = null;
-
-  function initLiff() {
-    liff.init({ liffId: LIFF_ID }).then(() => {
-      if (liff.isLoggedIn()) {
-        liff.getProfile().then(profile => {
-          currentLineProfile = profile;
-          // 儲存 ID 到 sessionStorage，讓 admin.html 可以共用登入狀態
-          sessionStorage.setItem('line_user_id', profile.userId);
-          updateLoginUI();
-        }).catch(err => {
-          console.error('取得個資失敗', err);
-          // 若取得個資失敗，顯示登入按鈕讓使用者重試
-          updateLoginUI();
-        });
-      } else {
-        updateLoginUI();
-      }
-    }).catch(err => {
-      console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
-      alert('LINE 登入元件初始化失敗，請檢查網路連線或重新整理頁面。\n錯誤訊息: ' + err);
-    });
-  }
-
-  function handleLineLogin() {
-    try {
-      if (liff.isInClient()) {
-        // 情境 1: 已經在 LINE App 內 (LIFF 瀏覽器)
-        // 直接登入，不需指定 redirectUri，避免參數錯誤導致無反應
-        liff.login();
-      } else {
-        // 情境 2: 外部瀏覽器
-        const url = new URL(window.location.href);
-        // 清除可能存在的舊參數，避免干擾
-        url.searchParams.delete('code');
-        url.searchParams.delete('state');
-        url.searchParams.delete('liffClientId');
-        url.searchParams.delete('liffRedirectUri');
-        url.searchParams.delete('from_liff');
-        
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        if (isAndroid) {
-          // Android: 強制使用 LIFF URL 嘗試喚起 App (解決 Chrome 阻擋問題)
-          window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
-        } else {
-          // iOS / 電腦: 使用 SDK 標準登入 (iOS 較新版本對 Universal Link 支援變更，SDK 處理較穩)
-          liff.login({ redirectUri: url.toString() });
-        }
-      }
-    } catch (err) {
-      alert('無法啟動登入: ' + err);
-    }
-  }
-
-  function updateLoginUI() {
-    const overlay = document.getElementById('loginOverlay');
-    const globalUser = document.getElementById('globalUserInfo');
-
-    // 如果沒有房間代碼 (Landing Page)，就不顯示登入遮罩
+  <script src="request.js"></script>
+  <script>
+    // --- 頁面路由邏輯 ---
+    const currentRoom = new URLSearchParams(window.location.search).get('room');
     if (!currentRoom) {
-      overlay.style.display = 'none';
-      return;
-    }
-
-    if (currentLineProfile) {
-      overlay.style.display = 'none';
-      globalUser.innerText = `Hi, ${currentLineProfile.displayName}`;
+      document.getElementById('landingPage').style.display = 'block';
+      document.getElementById('loginOverlay').style.display = 'none';
     } else {
-      overlay.style.display = 'flex';
-      globalUser.innerText = '';
+      document.getElementById('roomPage').style.display = 'block';
     }
-  }
 
-  // 啟動 LIFF
-  initLiff();
+    // --- LINE LIFF 設定 ---
+    const RECAPTCHA_SITE_KEY = '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs';
+    // ⚠️ 請將此處替換為你在 LINE Developers 申請的 LIFF ID
+    const LIFF_ID = '2008832076-eA3l2ogi';
+    let currentLineProfile = null;
 
-
-  // 投票切歌功能
-  function voteSkip() {
-    // 檢查 LINE 登入狀態
-    if (!currentLineProfile) {
-      alert('請先登入 LINE 才能投票');
-      handleLineLogin();
-      return;
-    }
-    
-    // 觸發 reCAPTCHA v3
-    grecaptcha.ready(function() {
-      grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'vote'}).then(function(token) {
-        executeVoteSkip(token);
-      });
-    });
-  }
-
-  function executeVoteSkip(captchaResponse) {
-    // 使用 LINE User ID 作為識別
-    const clientId = currentLineProfile.userId;
-
-    fetch('/vote-skip', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: clientId, captcha: captchaResponse })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok) {
-          alert(data.message || '已投票');
-          updateVoteStatus();
+    function initLiff() {
+      liff.init({ liffId: LIFF_ID }).then(() => {
+        if (liff.isLoggedIn()) {
+          liff.getProfile().then(profile => {
+            currentLineProfile = profile;
+            // 儲存 ID 到 sessionStorage，讓 admin.html 可以共用登入狀態
+            sessionStorage.setItem('line_user_id', profile.userId);
+            updateLoginUI();
+          }).catch(err => {
+            console.error('取得個資失敗', err);
+            // 若取得個資失敗，顯示登入按鈕讓使用者重試
+            updateLoginUI();
+          });
         } else {
-          alert(data.error || '投票失敗');
+          updateLoginUI();
         }
-      })
-      .catch(() => {
-        alert('投票失敗，請稍後再試');
+      }).catch(err => {
+        console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
+        alert('LINE 登入元件初始化失敗，請檢查網路連線或重新整理頁面。\n錯誤訊息: ' + err);
       });
-  }
-
-  // 更新正在播放與票數狀態
-  function updateVoteStatus() {
-    fetch('/queue').then(r => r.json()).then(queue => {
-      const voteSection = document.getElementById('voteSection');
-      if (queue && queue.length > 0) {
-        voteSection.style.display = 'block';
-        document.getElementById('npTitle').innerText = queue[0].title;
-        const votes = queue[0].votes || 0;
-        document.getElementById('voteCount').innerText = `(${votes} 票)`;
-      } else {
-        voteSection.style.display = 'none';
-      }
-    });
-  }
-  setInterval(updateVoteStatus, 3000);
-  updateVoteStatus();
-
-  // --- 排行榜功能 ---
-  let currentLeaderboardTab = 'users';
-
-  function showLeaderboard() {
-    const overlay = document.getElementById('leaderboardOverlay');
-    overlay.style.display = 'flex';
-    switchLeaderboard(currentLeaderboardTab);
-  }
-
-  function switchLeaderboard(type) {
-    currentLeaderboardTab = type;
-    const list = document.getElementById('leaderboardList');
-    list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">載入中...</div>';
-    
-    // Update tabs UI
-    const tabUsers = document.getElementById('tab-users');
-    const tabSongs = document.getElementById('tab-songs');
-    if (type === 'users') {
-      tabUsers.style.background = '#444'; tabUsers.style.color = '#fff'; tabUsers.style.border = 'none'; tabUsers.style.fontWeight = 'bold';
-      tabSongs.style.background = '#222'; tabSongs.style.color = '#aaa'; tabSongs.style.border = '1px solid #444'; tabSongs.style.fontWeight = 'normal';
-    } else {
-      tabSongs.style.background = '#444'; tabSongs.style.color = '#fff'; tabSongs.style.border = 'none'; tabSongs.style.fontWeight = 'bold';
-      tabUsers.style.background = '#222'; tabUsers.style.color = '#aaa'; tabUsers.style.border = '1px solid #444'; tabUsers.style.fontWeight = 'normal';
     }
 
-    const endpoint = type === 'users' ? '/leaderboard' : '/leaderboard/songs';
+    function handleLineLogin() {
+      try {
+        if (liff.isInClient()) {
+          // 情境 1: 已經在 LINE App 內 (LIFF 瀏覽器)
+          // 直接登入，不需指定 redirectUri，避免參數錯誤導致無反應
+          liff.login();
+        } else {
+          // 情境 2: 外部瀏覽器
+          const url = new URL(window.location.href);
+          // 清除可能存在的舊參數，避免干擾
+          url.searchParams.delete('code');
+          url.searchParams.delete('state');
+          url.searchParams.delete('liffClientId');
+          url.searchParams.delete('liffRedirectUri');
+          url.searchParams.delete('from_liff');
 
-    fetch(endpoint)
-      .then(r => r.json())
-      .then(data => {
-        list.innerHTML = '';
-        if (!data || data.length === 0) {
-          list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">目前沒有資料</div>';
-          return;
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isAndroid) {
+            // Android: 強制使用 LIFF URL 嘗試喚起 App (解決 Chrome 阻擋問題)
+            window.location.href = `https://liff.line.me/${LIFF_ID}${url.search}`;
+          } else {
+            // iOS / 電腦: 使用 SDK 標準登入 (iOS 較新版本對 Universal Link 支援變更，SDK 處理較穩)
+            liff.login({ redirectUri: url.toString() });
+          }
         }
-        
-        data.forEach((user, idx) => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;';
-          
-          let rankColor = '#888';
-          let rankIcon = idx + 1;
-          if (idx === 0) { rankColor = '#ffd700'; rankIcon = '🥇'; }
-          else if (idx === 1) { rankColor = '#c0c0c0'; rankIcon = '🥈'; }
-          else if (idx === 2) { rankColor = '#cd7f32'; rankIcon = '🥉'; }
+      } catch (err) {
+        alert('無法啟動登入: ' + err);
+      }
+    }
 
-          if (type === 'users') {
-            row.innerHTML = `
+    function updateLoginUI() {
+      const overlay = document.getElementById('loginOverlay');
+      const globalUser = document.getElementById('globalUserInfo');
+
+      // 如果沒有房間代碼 (Landing Page)，就不顯示登入遮罩
+      if (!currentRoom) {
+        overlay.style.display = 'none';
+        return;
+      }
+
+      if (currentLineProfile) {
+        overlay.style.display = 'none';
+        globalUser.innerText = `Hi, ${currentLineProfile.displayName}`;
+      } else {
+        overlay.style.display = 'flex';
+        globalUser.innerText = '';
+      }
+    }
+
+    // 啟動 LIFF
+    initLiff();
+
+
+    // 投票切歌功能
+    function voteSkip() {
+      // 檢查 LINE 登入狀態
+      if (!currentLineProfile) {
+        alert('請先登入 LINE 才能投票');
+        handleLineLogin();
+        return;
+      }
+
+      // 觸發 reCAPTCHA v3
+      grecaptcha.ready(function () {
+        grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'vote' }).then(function (token) {
+          executeVoteSkip(token);
+        });
+      });
+    }
+
+    function executeVoteSkip(captchaResponse) {
+      // 使用 LINE User ID 作為識別
+      const clientId = currentLineProfile.userId;
+
+      fetch('/vote-skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: clientId, captcha: captchaResponse })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            alert(data.message || '已投票');
+            updateVoteStatus();
+          } else {
+            alert(data.error || '投票失敗');
+          }
+        })
+        .catch(() => {
+          alert('投票失敗，請稍後再試');
+        });
+    }
+
+    // 更新正在播放與票數狀態
+    function updateVoteStatus() {
+      fetch('/queue').then(r => r.json()).then(queue => {
+        const voteSection = document.getElementById('voteSection');
+        if (queue && queue.length > 0) {
+          voteSection.style.display = 'block';
+          document.getElementById('npTitle').innerText = queue[0].title;
+          const votes = queue[0].votes || 0;
+          document.getElementById('voteCount').innerText = `(${votes} 票)`;
+        } else {
+          voteSection.style.display = 'none';
+        }
+      });
+    }
+    setInterval(updateVoteStatus, 3000);
+    updateVoteStatus();
+
+    // --- 排行榜功能 ---
+    let currentLeaderboardTab = 'users';
+
+    function showLeaderboard() {
+      const overlay = document.getElementById('leaderboardOverlay');
+      overlay.style.display = 'flex';
+      switchLeaderboard(currentLeaderboardTab);
+    }
+
+    function switchLeaderboard(type) {
+      currentLeaderboardTab = type;
+      const list = document.getElementById('leaderboardList');
+      list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">載入中...</div>';
+
+      // Update tabs UI
+      const tabUsers = document.getElementById('tab-users');
+      const tabSongs = document.getElementById('tab-songs');
+      if (type === 'users') {
+        tabUsers.style.background = '#444'; tabUsers.style.color = '#fff'; tabUsers.style.border = 'none'; tabUsers.style.fontWeight = 'bold';
+        tabSongs.style.background = '#222'; tabSongs.style.color = '#aaa'; tabSongs.style.border = '1px solid #444'; tabSongs.style.fontWeight = 'normal';
+      } else {
+        tabSongs.style.background = '#444'; tabSongs.style.color = '#fff'; tabSongs.style.border = 'none'; tabSongs.style.fontWeight = 'bold';
+        tabUsers.style.background = '#222'; tabUsers.style.color = '#aaa'; tabUsers.style.border = '1px solid #444'; tabUsers.style.fontWeight = 'normal';
+      }
+
+      const endpoint = type === 'users' ? '/leaderboard' : '/leaderboard/songs';
+
+      fetch(endpoint)
+        .then(r => r.json())
+        .then(data => {
+          list.innerHTML = '';
+          if (!data || data.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">目前沒有資料</div>';
+            return;
+          }
+
+          data.forEach((user, idx) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #333;';
+
+            let rankColor = '#888';
+            let rankIcon = idx + 1;
+            if (idx === 0) { rankColor = '#ffd700'; rankIcon = '🥇'; }
+            else if (idx === 1) { rankColor = '#c0c0c0'; rankIcon = '🥈'; }
+            else if (idx === 2) { rankColor = '#cd7f32'; rankIcon = '🥉'; }
+
+            if (type === 'users') {
+              row.innerHTML = `
               <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
               <img src="${user.picture || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; margin:0 10px; object-fit:cover; background:#333;">
               <div style="flex:1; overflow:hidden;">
@@ -372,8 +608,8 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
               </div>
               <div style="color:#06c755; font-weight:bold; font-size:14px;">${user.count} 首</div>
             `;
-          } else {
-            row.innerHTML = `
+            } else {
+              row.innerHTML = `
               <div style="width:30px; text-align:center; font-weight:bold; color:${rankColor}; font-size:16px;">${rankIcon}</div>
               <img src="${user.thumbnail || 'https://via.placeholder.com/40'}" style="width:50px; height:28px; border-radius:4px; margin:0 10px; object-fit:cover; background:#333;">
               <div style="flex:1; overflow:hidden;">
@@ -381,72 +617,97 @@ hr { border:0; height:1px; background:#222; margin:12px 0; }
               </div>
               <div style="color:#ff4444; font-weight:bold; font-size:14px;">${user.count} 次</div>
             `;
-          }
-          list.appendChild(row);
+            }
+            list.appendChild(row);
+          });
+        })
+        .catch(err => {
+          console.error(err);
+          list.innerHTML = '<div style="text-align:center; color:#ff4444; padding:20px;">載入失敗</div>';
         });
+    }
+
+    function closeLeaderboard() {
+      document.getElementById('leaderboardOverlay').style.display = 'none';
+    }
+
+    // --- 彈幕功能 ---
+    function sendDanmaku() {
+      const input = document.getElementById('danmakuInput');
+      const colorInput = document.getElementById('danmakuColor');
+      const sizeInput = document.getElementById('danmakuSize');
+      const modeInput = document.getElementById('danmakuMode');
+      const quantityInput = document.getElementById('danmakuQuantity');
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      fetch('/danmaku', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, color: colorInput.value, size: sizeInput.value, mode: modeInput.value, quantity: quantityInput.value })
       })
-      .catch(err => {
-        console.error(err);
-        list.innerHTML = '<div style="text-align:center; color:#ff4444; padding:20px;">載入失敗</div>';
-      });
-  }
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            input.value = '';
+            // 簡單的成功回饋
+            const btn = document.querySelector('button[onclick="sendDanmaku()"]');
+            const originalText = btn.innerText;
+            btn.innerText = '已發送';
+            setTimeout(() => btn.innerText = originalText, 1000);
+          }
+        })
+        .catch(err => alert('發送失敗'));
+    }
 
-  function closeLeaderboard() {
-    document.getElementById('leaderboardOverlay').style.display = 'none';
-  }
-
-  // --- 彈幕功能 ---
-  function sendDanmaku() {
-    const input = document.getElementById('danmakuInput');
-    const colorInput = document.getElementById('danmakuColor');
-    const sizeInput = document.getElementById('danmakuSize');
-    const modeInput = document.getElementById('danmakuMode');
-    const quantityInput = document.getElementById('danmakuQuantity');
-    const text = input.value.trim();
-    
-    if (!text) return;
-    
-    fetch('/danmaku', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text, color: colorInput.value, size: sizeInput.value, mode: modeInput.value, quantity: quantityInput.value })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        input.value = '';
-        // 簡單的成功回饋
-        const btn = document.querySelector('button[onclick="sendDanmaku()"]');
-        const originalText = btn.innerText;
-        btn.innerText = '已發送';
-        setTimeout(() => btn.innerText = originalText, 1000);
+    // --- 分享功能 ---
+    function shareRoom() {
+      const url = window.location.href;
+      if (navigator.share) {
+        navigator.share({
+          title: '放歌啦 - 手機點歌',
+          text: '快來這個房間點歌！',
+          url: url
+        }).catch(console.error);
+      } else {
+        navigator.clipboard.writeText(url).then(() => alert('連結已複製到剪貼簿！'));
       }
-    })
-    .catch(err => alert('發送失敗'));
-  }
-
-  // --- 分享功能 ---
-  function shareRoom() {
-    const url = window.location.href;
-    if (navigator.share) {
-      navigator.share({
-        title: '放歌啦 - 手機點歌',
-        text: '快來這個房間點歌！',
-        url: url
-      }).catch(console.error);
-    } else {
-      navigator.clipboard.writeText(url).then(() => alert('連結已複製到剪貼簿！'));
     }
-  }
 
-  function goToPage(path) {
-    const room = new URLSearchParams(window.location.search).get('room');
-    if (room) {
-      window.location.href = `${path}?room=${encodeURIComponent(room)}`;
-    } else {
-      window.location.href = path;
+    function goToPage(path) {
+      const room = new URLSearchParams(window.location.search).get('room');
+      if (room) {
+        window.location.href = `${path}?room=${encodeURIComponent(room)}`;
+      } else {
+        window.location.href = path;
+      }
     }
-  }
-</script>
+  </script>
+
+  <!-- Background Waves -->
+  <div class="waves-container">
+    <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+      viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
+      <defs>
+        <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+        <linearGradient id="wave-grad-1" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#00ffcc" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="#007bff" stop-opacity="0.3" />
+        </linearGradient>
+        <linearGradient id="wave-grad-2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#ff4444" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="#ff00cc" stop-opacity="0.3" />
+        </linearGradient>
+      </defs>
+      <g class="parallax">
+        <use xlink:href="#gentle-wave" x="48" y="0" fill="url(#wave-grad-1)" />
+        <use xlink:href="#gentle-wave" x="48" y="3" fill="url(#wave-grad-2)" />
+        <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(0, 255, 204, 0.2)" />
+        <use xlink:href="#gentle-wave" x="48" y="7" fill="rgba(0, 123, 255, 0.1)" />
+      </g>
+    </svg>
+  </div>
 </body>
+
 </html>

@@ -1,46 +1,51 @@
 // request.js
 
 // --- Toast 彈出視窗 ---
-function showToast(title, msg) {
+function showToast(title, msg, type = 'info') {
   // 如果已存在 toast，先移除
   const old = document.getElementById("toastBox");
   if (old) old.remove();
 
   const box = document.createElement("div");
   box.id = "toastBox";
-  box.style.position = "fixed";
-  box.style.top = "50%";
-  box.style.left = "50%";
-  box.style.transform = "translate(-50%, -50%) scale(0.7)";
-  box.style.background = "rgba(0,0,0,0.85)";
-  box.style.padding = "22px 28px";
-  box.style.borderRadius = "12px";
-  box.style.color = "#fff";
-  box.style.textAlign = "center";
-  box.style.fontFamily = "Arial";
-  box.style.boxShadow = "0 4px 20px rgba(0,0,0,0.45)";
-  box.style.opacity = "0";
-  box.style.transition = "0.25s";
-  box.style.zIndex = "9999";
+  
+  let bg = "rgba(0,0,0,0.85)";
+  let icon = "✨";
+  if (type === 'error') { bg = "rgba(220, 53, 69, 0.95)"; icon = "❌"; }
+  else if (type === 'success') { bg = "rgba(40, 167, 69, 0.95)"; icon = "✅"; }
+  else if (type === 'warn') { bg = "rgba(255, 193, 7, 0.95)"; icon = "⚠️"; }
+
+  Object.assign(box.style, {
+    position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%) translateY(-20px)",
+    background: bg, backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.1)",
+    padding: "16px 24px", borderRadius: "12px", color: "#fff", textAlign: "center",
+    fontFamily: "'Arial', sans-serif", boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+    opacity: "0", transition: "all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)", zIndex: "9999",
+    display: "flex", flexDirection: "column", gap: "6px", minWidth: "250px"
+  });
 
   box.innerHTML = `
-    <div style="font-size:20px; font-weight:700; margin-bottom:6px;">✨ ${title}</div>
-    <div style="font-size:15px; color:#ddd;">${msg}</div>
+    <div style="font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
+      <span>${icon}</span> ${title}
+    </div>
+    <div style="font-size:14px; color:rgba(255,255,255,0.9);">${msg}</div>
   `;
 
   document.body.appendChild(box);
 
   // 動畫出現
-  setTimeout(() => {
-    box.style.opacity = "1";
-    box.style.transform = "translate(-50%, -50%) scale(1)";
-  }, 10);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      box.style.opacity = "1";
+      box.style.transform = "translateX(-50%) translateY(0)";
+    });
+  });
 
   // 3 秒後消失
   setTimeout(() => {
     box.style.opacity = "0";
-    box.style.transform = "translate(-50%, -50%) scale(0.7)";
-    setTimeout(() => box.remove(), 250);
+    box.style.transform = "translateX(-50%) translateY(-20px)";
+    setTimeout(() => box.remove(), 400);
   }, 3000);
 }
 
@@ -48,6 +53,7 @@ function showToast(title, msg) {
 function searchYT() {
   const q = document.getElementById('searchInput').value.trim();
   const box = document.getElementById('searchList');
+  const btn = document.querySelector('button[onclick="searchYT()"]');
 
   if (!q) {
     box.innerHTML = '';
@@ -55,6 +61,7 @@ function searchYT() {
   }
 
   box.innerHTML = '🔍 搜尋中…';
+  if (btn) btn.classList.add('btn-loading');
 
   fetch('/search?q=' + encodeURIComponent(q))
     .then(r => r.json())
@@ -84,6 +91,9 @@ function searchYT() {
     .catch(err => {
       console.error('search error', err);
       box.innerHTML = '<div class="small">搜尋錯誤，請稍後再試</div>';
+    })
+    .finally(() => {
+      if (btn) btn.classList.remove('btn-loading');
     });
 }
 
@@ -94,24 +104,26 @@ function sendRequestByVideoId(videoId) {
 
 function sendRequestFromInput() {
   const url = document.getElementById('urlInput').value.trim();
+  const btn = document.querySelector('button[onclick="sendRequestFromInput()"]');
   if (!url) {
-    showToast("錯誤", "請輸入連結或使用搜尋");
+    showToast("錯誤", "請輸入連結或使用搜尋", "error");
     return;
   }
-  sendRequest(url);
+  if (btn) btn.classList.add('btn-loading');
+  sendRequest(url, btn);
 }
 
 // --- 點歌 API ---
-function sendRequest(url) {
+function sendRequest(url, btnElement = null) {
   // 觸發 reCAPTCHA v3
   grecaptcha.ready(function() {
     grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'request'}).then(function(token) {
-      window.executeSendRequest(url, token);
+      window.executeSendRequest(url, token, btnElement);
     });
   });
 }
 
-window.executeSendRequest = function(url, token) {
+window.executeSendRequest = function(url, token, btnElement = null) {
   showToast("傳送中…", "請稍候");
 
   // 準備使用者資料 (若已登入)
@@ -133,20 +145,23 @@ window.executeSendRequest = function(url, token) {
     .then(data => {
 
       if (data.ok) {
-        showToast("點歌成功", data.title + " 已加入隊列");
+        showToast("點歌成功", data.title + " 已加入隊列", "success");
         document.getElementById('urlInput').value = '';
         updateQueue();
         document.getElementById('searchList').innerHTML = ''; // 清空搜尋結果
 
       } else if (data.error && data.error.includes("排隊中")) {
-        showToast("重複點歌", data.error);
+        showToast("重複點歌", data.error, "warn");
       } else {
-        showToast("錯誤", data.error || '加入失敗');
+        showToast("錯誤", data.error || '加入失敗', "error");
       }
     })
     .catch(err => {
       console.error('request error', err);
-      showToast("錯誤", "傳送失敗：" + err.message);
+      showToast("錯誤", "傳送失敗：" + err.message, "error");
+    })
+    .finally(() => {
+      if (btnElement) btnElement.classList.remove('btn-loading');
     });
 }
 

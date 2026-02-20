@@ -187,6 +187,37 @@
       }
     }
 
+    /* Button Loading Spinner */
+    @keyframes spin-load {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-loading {
+      position: relative;
+      color: transparent !important;
+      pointer-events: none;
+    }
+
+    .btn-loading::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin-load 0.8s linear infinite;
+    }
+
     @keyframes pulseGlow {
       0% {
         box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
@@ -613,11 +644,13 @@
         }
       }).catch(err => {
         console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
-        alert('LINE 登入元件初始化失敗，請檢查網路連線或重新整理頁面。\n錯誤訊息: ' + err);
+        showToast('初始化失敗', '請檢查網路連線或重新整理頁面。', 'error');
       });
     }
 
     function handleLineLogin() {
+      const btn = document.querySelector('button[onclick="handleLineLogin()"]');
+      if (btn) btn.classList.add('btn-loading');
       try {
         if (liff.isInClient()) {
           // 情境 1: 已經在 LINE App 內 (LIFF 瀏覽器)
@@ -643,7 +676,8 @@
           }
         }
       } catch (err) {
-        alert('無法啟動登入: ' + err);
+        showToast('登入錯誤', err.message || err, 'error');
+        if (btn) btn.classList.remove('btn-loading');
       }
     }
 
@@ -674,20 +708,23 @@
     function voteSkip() {
       // 檢查 LINE 登入狀態
       if (!currentLineProfile) {
-        alert('請先登入 LINE 才能投票');
+        showToast('需要登入', '請先登入 LINE 才能投票', 'warn');
         handleLineLogin();
         return;
       }
 
+      const btn = document.querySelector('button[onclick="voteSkip()"]');
+      if (btn) btn.classList.add('btn-loading');
+
       // 觸發 reCAPTCHA v3
       grecaptcha.ready(function () {
         grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'vote' }).then(function (token) {
-          executeVoteSkip(token);
+          executeVoteSkip(token, btn);
         });
       });
     }
 
-    function executeVoteSkip(captchaResponse) {
+    function executeVoteSkip(captchaResponse, btnElement) {
       // 使用 LINE User ID 作為識別
       const clientId = currentLineProfile.userId;
 
@@ -699,14 +736,17 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) {
-            alert(data.message || '已投票');
+            showToast('已投票', data.message || '投票切歌成功', 'success');
             updateVoteStatus();
           } else {
-            alert(data.error || '投票失敗');
+            showToast('投票失敗', data.error || '無法投票', 'error');
           }
         })
         .catch(() => {
-          alert('投票失敗，請稍後再試');
+          showToast('錯誤', '投票登入失敗，請稍後再試', 'error');
+        })
+        .finally(() => {
+          if (btnElement) btnElement.classList.remove('btn-loading');
         });
     }
 
@@ -815,7 +855,13 @@
       const quantityInput = document.getElementById('danmakuQuantity');
       const text = input.value.trim();
 
-      if (!text) return;
+      if (!text) {
+        showToast('提示', '請輸入彈幕內容', 'warn');
+        return;
+      }
+
+      const btn = document.querySelector('button[onclick="sendDanmaku()"]');
+      if (btn) btn.classList.add('btn-loading');
 
       fetch('/danmaku', {
         method: 'POST',
@@ -826,14 +872,15 @@
         .then(data => {
           if (data.ok) {
             input.value = '';
-            // 簡單的成功回饋
-            const btn = document.querySelector('button[onclick="sendDanmaku()"]');
-            const originalText = btn.innerText;
-            btn.innerText = '已發送';
-            setTimeout(() => btn.innerText = originalText, 1000);
+            showToast('已發送', '彈幕發送成功', 'success');
+          } else {
+            showToast('發送失敗', data.error || '未知的錯誤', 'error');
           }
         })
-        .catch(err => alert('發送失敗'));
+        .catch(err => showToast('發送失敗', '請稍後再試', 'error'))
+        .finally(() => {
+          if (btn) btn.classList.remove('btn-loading');
+        });
     }
 
     // --- 分享功能 ---
@@ -846,7 +893,7 @@
           url: url
         }).catch(console.error);
       } else {
-        navigator.clipboard.writeText(url).then(() => alert('連結已複製到剪貼簿！'));
+        navigator.clipboard.writeText(url).then(() => showToast('已複製', '連結已複製到剪貼簿！', 'success'));
       }
     }
 

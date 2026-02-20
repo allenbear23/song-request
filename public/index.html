@@ -167,6 +167,169 @@
         transform: translate3d(85px, 0, 0);
       }
     }
+
+    /* Animations for Room Page */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
+      }
+
+      50% {
+        box-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+      }
+
+      100% {
+        box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
+      }
+    }
+
+    @keyframes musicBar {
+
+      0%,
+      100% {
+        height: 4px;
+      }
+
+      50% {
+        height: 14px;
+      }
+    }
+
+    .room-anim {
+      animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .btn-secondary {
+      background: #333;
+      color: #ccc;
+      border: 1px solid #444;
+      transition: all 0.3s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #444;
+      color: #fff;
+      border-color: #666;
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .btn-vote {
+      background: linear-gradient(45deg, #2a2a2a, #333) !important;
+      color: #fff !important;
+      border: 1px solid #555 !important;
+      transition: all 0.3s ease !important;
+      cursor: pointer;
+    }
+
+    .btn-vote:hover {
+      border-color: #ffeb3b !important;
+      box-shadow: 0 0 15px rgba(255, 235, 59, 0.3) !important;
+      color: #ffeb3b !important;
+      transform: translateY(-2px) !important;
+    }
+
+    .glow-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      text-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+    }
+
+    .playing-bar {
+      width: 3px;
+      background: #00ffcc;
+      display: inline-block;
+      margin: 0 1.5px;
+      border-radius: 2px;
+      animation: musicBar 1s infinite;
+      transform-origin: bottom;
+    }
+
+    .playing-bar:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .playing-bar:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .playing-bar:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    .playing-bar:nth-child(4) {
+      animation-delay: 0.1s;
+    }
+
+    /* Enhance input and button transitions */
+    input {
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #00ffcc;
+      box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+      background: #1a1a1a;
+      transform: translateY(-1px);
+    }
+
+    button {
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(255, 68, 68, 0.4);
+      filter: brightness(1.1);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 5px rgba(255, 68, 68, 0.4);
+    }
+
+    .search-result {
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    .search-result:hover {
+      background: #1a1a1a;
+      transform: scale(1.02);
+      border-color: #00ffcc;
+      box-shadow: 0 5px 15px rgba(0, 255, 204, 0.15);
+    }
+
+    .search-result img {
+      transition: transform 0.3s ease;
+    }
+
+    .search-result:hover img {
+      transform: scale(1.05);
+    }
   </style>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
     crossorigin="anonymous"></script>
@@ -321,20 +484,26 @@
     </div>
   </div>
 
-  <div class="container" id="roomPage" style="display:none;">
+  <div class="container room-anim" id="roomPage" style="display:none;">
     <h1 style="display:flex; justify-content:space-between; align-items:center;">
-      手機點歌
-      <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal;"></span>
+      <div class="glow-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+          style="animation: spin 3s linear infinite;">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="#00ffcc" stroke-width="2" />
+          <circle cx="12" cy="12" r="3" fill="#ff4444" />
+          <path d="M12 2 a10 10 0 0 1 10 10" fill="none" stroke="#007bff" stroke-width="2" />
+        </svg>
+        手機點歌
+      </div>
+      <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal; text-shadow:none;"></span>
     </h1>
-    <button onclick="shareRoom()"
-      style="background:#333; color:#ccc; font-size:13px; padding:8px; margin-top:0; margin-bottom:10px; border:1px solid #444;">📤
+    <button onclick="shareRoom()" class="btn-secondary"
+      style="font-size:13px; padding:8px; margin-top:0; margin-bottom:10px;">📤
       分享此房間連結</button>
     <div style="display:flex; gap:10px; margin-bottom:10px;">
-      <button onclick="goToPage('/admin.html')"
-        style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">⚙️
+      <button onclick="goToPage('/admin.html')" class="btn-secondary" style="flex:1; font-size:13px; padding:8px;">⚙️
         管理後台</button>
-      <button onclick="goToPage('/display.html')"
-        style="flex:1; background:#333; color:#ccc; font-size:13px; padding:8px; border:1px solid #444;">📺
+      <button onclick="goToPage('/display.html')" class="btn-secondary" style="flex:1; font-size:13px; padding:8px;">📺
         播放頁面</button>
     </div>
 
@@ -355,12 +524,18 @@
 
     <!-- 投票切歌區塊 -->
     <div id="voteSection"
-      style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333;">
-      <div style="font-size:13px; color:#aaa;">🎵 正在播放</div>
-      <div id="npTitle" style="font-weight:bold; margin:5px 0; color:#fff;">載入中...</div>
+      style="display:none; background:#1a1a1a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #333; position:relative; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.4);">
+      <div style="font-size:13px; color:#aaa; display:flex; align-items:center; gap:6px;">
+        🎵 正在播放
+        <div style="display:flex; align-items:flex-end; height:14px;">
+          <span class="playing-bar"></span><span class="playing-bar"></span><span class="playing-bar"></span><span
+            class="playing-bar"></span>
+        </div>
+      </div>
+      <div id="npTitle" style="font-weight:bold; margin:7px 0; color:#fff; font-size:16px;">載入中...</div>
 
       <!-- LINE 登入與投票控制區 -->
-      <button onclick="voteSkip()" style="background:#333; border:1px solid #555; margin-top:5px;">🗳 投票切歌 <span
+      <button onclick="voteSkip()" class="btn-vote" style="margin-top:5px;">🗳 投票切歌 <span
           id="voteCount"></span></button>
     </div>
 

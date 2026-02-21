@@ -93,6 +93,23 @@
       padding: 6px 12px;
       margin-left: 10px;
     }
+
+    .icon {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    h3 .icon {
+      width: 20px;
+      height: 20px;
+    }
   </style>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
     crossorigin="anonymous"></script>
@@ -102,7 +119,45 @@
 
 <body>
 
-  <h1>🏠 建立或加入房間</h1>
+  <svg style="display: none;">
+    <defs>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </symbol>
+      <symbol id="icon-rocket" viewBox="0 0 24 24">
+        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2l.5-.5"></path>
+        <path d="M12 15l-3-3a22 22 0 0 1-.5-9s-2 1-2 3c0 1.5 1 3.5 2 4.5s3 2 4.5 2c2 0 3-2 3-2s-9-.5-9-.5z"
+          fill="currentColor"></path>
+        <path d="M14.5 6.5s-1-2 2.5-3.5"></path>
+        <circle cx="15.5" cy="8.5" r="1.5"></circle>
+      </symbol>
+      <symbol id="icon-mic" viewBox="0 0 24 24">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </symbol>
+      <symbol id="icon-tv" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+        <polyline points="17 2 12 7 7 2"></polyline>
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+        </path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </symbol>
+      <symbol id="icon-book" viewBox="0 0 24 24">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+      </symbol>
+    </defs>
+  </svg>
+
+  <h1><svg class="icon" style="width:32px; height:32px;">
+      <use href="#icon-home"></use>
+    </svg> 建立或加入房間</h1>
 
   <div class="card">
     <!-- 未登入時顯示 -->
@@ -119,11 +174,15 @@
     </div>
 
     <div id="resultArea" class="links">
-      <h3 style="margin-top:0;">🚀 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
+      <h3 style="margin-top:0;"><svg class="icon">
+          <use href="#icon-rocket"></use>
+        </svg> 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
 
       <div class="link-item">
         <div style="flex:1">
-          <div class="link-label">🎤 點歌頁面 (給來賓)</div>
+          <div class="link-label"><svg class="icon">
+              <use href="#icon-mic"></use>
+            </svg> 點歌頁面 (給來賓)</div>
           <a id="guestLink" href="#" target="_blank">...</a>
         </div>
         <button class="btn-copy" onclick="copyLink('guestLink')">複製</button>
@@ -131,7 +190,9 @@
 
       <div class="link-item">
         <div style="flex:1">
-          <div class="link-label">📺 播放頁面 (大螢幕)</div>
+          <div class="link-label"><svg class="icon">
+              <use href="#icon-tv"></use>
+            </svg> 播放頁面 (大螢幕)</div>
           <a id="displayLink" href="#" target="_blank">...</a>
         </div>
         <button class="btn-copy" onclick="copyLink('displayLink')">複製</button>
@@ -139,7 +200,9 @@
 
       <div class="link-item">
         <div style="flex:1">
-          <div class="link-label">⚙️ 後台管理 (控制台)</div>
+          <div class="link-label"><svg class="icon">
+              <use href="#icon-settings"></use>
+            </svg> 後台管理 (控制台)</div>
           <a id="adminLink" href="#" target="_blank">...</a>
         </div>
         <button class="btn-copy" onclick="copyLink('adminLink')">複製</button>
@@ -148,7 +211,9 @@
 
     <div
       style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
-      <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
+      <h3 style="color: #fff; margin-top: 0;"><svg class="icon">
+          <use href="#icon-book"></use>
+        </svg> 使用說明</h3>
       <ol style="padding-left: 20px; margin: 0;">
         <li><b>登入 LINE</b> 後點擊按鈕。</li>
         <li>系統會自動為您分配一個<b>專屬房間</b>。</li>

@@ -1,743 +1,1034 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<title>放歌啦</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="放歌啦播放介面，展示目前播放歌曲、排隊清單與即時彈幕互動。">
-<meta property="og:title" content="放歌啦 - 播放畫面">
-<meta property="og:description" content="即時顯示點歌佇列、歌詞與視覺特效。">
-<style>
-/* QR Code 浮動卡片 */
-#qrcodeBox {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 100;
-}
+  <meta charset="utf-8">
+  <title>放歌啦</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="放歌啦播放介面，展示目前播放歌曲、排隊清單與即時彈幕互動。">
+  <meta property="og:title" content="放歌啦 - 播放畫面">
+  <meta property="og:description" content="即時顯示點歌佇列、歌詞與視覺特效。">
+  <style>
+    /* QR Code 浮動卡片 */
+    #qrcodeBox {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+    }
 
-#qrcodeCard {
-  background: radial-gradient(circle at center, rgba(0,0,0,0.7), rgba(0,0,0,0.4));
-  padding: 16px;
-  border-radius: 20px;
-  box-shadow: 0 0 20px rgba(172, 7, 7, 0.5), 0 0 50px rgba(172, 7, 7, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-
-
-/* 滑鼠經過放大 */
-#qrcodeCard:hover {
-  transform: scale(1.1);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-}
-
-#qrcodeCard img {
-  border-radius: 16px;
-  width: 180px;
-  height: 180px;
-  box-shadow: 0 0 15px rgba(172, 7, 7, 0.5);
-}
+    #qrcodeCard {
+      background: radial-gradient(circle at center, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.4));
+      padding: 16px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(172, 7, 7, 0.5), 0 0 50px rgba(172, 7, 7, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
 
 
-/* 深黑 YouTube 主題風 */
-body { margin:0; height:100vh; display:flex; background:#000; color:#fff; font-family:Arial; }
-#player-container { flex:3; position:relative; background:#0b0b0b; display:flex; align-items:center; justify-content:center; }
-#sidebar { flex:1.05; background:#111; padding:18px; overflow-y:auto; border-left: 1px solid #222; }
-.header { font-size:18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
-.video-card { display:flex; background:#141414; padding:10px; border-radius:10px; margin-bottom:12px; align-items:center; }
-.video-card.playing { border: 2px solid #ff4444; background: linear-gradient(90deg,#0f1b2b, #08121a); }
-.thumbnail { width:120px; height:68px; object-fit:cover; border-radius:6px; margin-right:12px; }
-.info { flex:1; }
-.title { font-size:14px; font-weight:700; color:#fff; }
-.channel { font-size:12px; color:#bbb; margin-top:6px; }
-.controls { margin-left:10px; }
-</style>
-<style>
-/* 投票 Overlay */
-#voteOverlay {
-  display: none;
-  position: fixed; bottom: 20px; left: 20px; top: auto; width: auto; height: auto;
-  background: rgba(0,0,0,0.9);
-  border: 1px solid #333;
-  border-radius: 16px;
-  padding: 15px;
-  z-index: 200;
-  flex-direction: column; align-items: center; justify-content: center;
-  animation: slideUp 0.3s;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-}
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.vote-box { text-align: center; color: #fff; }
-.vote-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #ff4444; }
-.vote-info { font-size: 18px; margin: 5px 0; }
 
-/* 圓形倒數計時器 */
-.vote-timer-circle { position: relative; width: 80px; height: 80px; margin: 5px auto; }
-.vote-timer-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.vote-timer-circle circle { fill: none; stroke-width: 8; stroke-linecap: round; }
-.vote-timer-circle .bg { stroke: #333; }
-.vote-timer-circle .fg {
-  stroke: #ff4444;
-  stroke-dasharray: 283; /* 2 * PI * 45 */
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.5s linear;
-}
-.vote-timer-circle .timer-text {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: bold; color: #fff;
-}
+    /* 滑鼠經過放大 */
+    #qrcodeCard:hover {
+      transform: scale(1.1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
 
-.vote-qr {
-  margin: 10px;
-  border: 3px solid #ff4444;
-  border-radius: 10px;
-  box-shadow: 0 0 10px #ff4444;
-  animation: qrFlash 0.5s infinite alternate;
-  width: 120px;
-  height: 120px;
-}
-@keyframes qrFlash {
-  0% { transform: scale(1); border-color: #ff4444; box-shadow: 0 0 20px #ff4444; }
-  100% { transform: scale(1.08); border-color: #ffff00; box-shadow: 0 0 50px #ffff00; }
-}
+    #qrcodeCard img {
+      border-radius: 16px;
+      width: 180px;
+      height: 180px;
+      box-shadow: 0 0 15px rgba(172, 7, 7, 0.5);
+    }
 
-/* 管理員切歌訊息 Overlay */
-#skipOverlay {
-  display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
-  background:rgba(0,0,0,0.95); z-index:300; flex-direction:column; align-items:center; justify-content:center; 
-  /* 背景淡入 */
-  animation: fadeIn 0.3s ease-out;
-}
 
-/* 印章動畫容器 */
-.stamp-container {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  /* 初始狀態 */
-  transform-origin: center;
-  animation: stampDrop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1.25) forwards;
-}
+    /* 深黑 YouTube 主題風 */
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      background: #000;
+      color: #fff;
+      font-family: Arial;
+    }
 
-@keyframes stampDrop {
-  0% { opacity: 0; transform: scale(3) translateY(-50px) rotate(-15deg); filter: blur(10px); }
-  100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); filter: blur(0); }
-}
+    #player-container {
+      flex: 3;
+      position: relative;
+      background: #0b0b0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-/* 投票成功 Overlay */
-#successOverlay {
-  display: none;
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  z-index: 400;
-  align-items: center; justify-content: center;
-  pointer-events: none; /* 讓點擊穿透，不影響操作 */
-}
-.success-box {
-  font-size: 60px; font-weight: bold; color: #00ff00;
-  text-align: center;
-  text-shadow: 0 0 20px rgba(0,255,0,0.8);
-  background: rgba(0,0,0,0.9);
-  padding: 30px 60px; border-radius: 20px; border: 6px solid #00ff00;
-  box-shadow: 0 0 50px rgba(0,255,0,0.5);
-  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes popIn {
-  0% { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
+    #sidebar {
+      flex: 1.05;
+      background: #111;
+      padding: 18px;
+      overflow-y: auto;
+      border-left: 1px solid #222;
+    }
 
-/* 跑馬燈樣式 */
-#marqueeContainer {
-  position: fixed; top: 0; left: 0; width: 100%; height: 50px;
-  background: rgba(0,0,0,0.85); z-index: 500;
-  display: none; align-items: center; overflow: hidden;
-  pointer-events: none; border-bottom: 1px solid #444;
-}
-#marqueeText {
-  display: inline-block; white-space: nowrap;
-  font-size: 28px; color: #ffeb3b; font-weight: bold;
-  padding-left: 100%;
-  animation: marqueeScroll 15s linear infinite;
-}
-@keyframes marqueeScroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
-}
+    .header {
+      font-size: 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-/* 彈幕樣式 */
-#danmaku-container {
-  position: fixed; top: 0; left: 0; width: 100%; height: 80%; /* 避開底部 */
-  pointer-events: none; z-index: 150; overflow: hidden;
-}
-.danmaku-item {
-  position: absolute;
-  white-space: nowrap;
-  font-weight: bold;
-  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 2px black;
-  font-family: "Microsoft JhengHei", sans-serif;
-  will-change: transform;
-  opacity: 0.9;
-}
-.danmaku-item.scroll {
-  animation: danmakuMove linear forwards;
-}
-.danmaku-item.fixed-top {
-  left: 50%;
-  transform: translateX(-50%);
-  animation: fadeOut 4s forwards;
-}
-.danmaku-item.fixed-bottom {
-  left: 50%;
-  transform: translateX(-50%);
-  animation: fadeOut 4s forwards;
-}
-@keyframes danmakuMove {
-  from { transform: translateX(100vw); }
-  to { transform: translateX(-100%); }
-}
-@keyframes fadeOut {
-  0% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
-}
-</style>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
-     crossorigin="anonymous"></script>
+    .video-card {
+      display: flex;
+      background: #141414;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .video-card.playing {
+      border: 2px solid #ff4444;
+      background: linear-gradient(90deg, #0f1b2b, #08121a);
+    }
+
+    .thumbnail {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-right: 12px;
+    }
+
+    .info {
+      flex: 1;
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .channel {
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 6px;
+    }
+
+    .controls {
+      margin-left: 10px;
+    }
+  </style>
+  <style>
+    /* 投票 Overlay */
+    #voteOverlay {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      top: auto;
+      width: auto;
+      height: auto;
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 15px;
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: slideUp 0.3s;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .vote-box {
+      text-align: center;
+      color: #fff;
+    }
+
+    .vote-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #ff4444;
+    }
+
+    .vote-info {
+      font-size: 18px;
+      margin: 5px 0;
+    }
+
+    /* 圓形倒數計時器 */
+    .vote-timer-circle {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 5px auto;
+    }
+
+    .vote-timer-circle svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .vote-timer-circle circle {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+
+    .vote-timer-circle .bg {
+      stroke: #333;
+    }
+
+    .vote-timer-circle .fg {
+      stroke: #ff4444;
+      stroke-dasharray: 283;
+      /* 2 * PI * 45 */
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.5s linear;
+    }
+
+    .vote-timer-circle .timer-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .vote-qr {
+      margin: 10px;
+      border: 3px solid #ff4444;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ff4444;
+      animation: qrFlash 0.5s infinite alternate;
+      width: 120px;
+      height: 120px;
+    }
+
+    @keyframes qrFlash {
+      0% {
+        transform: scale(1);
+        border-color: #ff4444;
+        box-shadow: 0 0 20px #ff4444;
+      }
+
+      100% {
+        transform: scale(1.08);
+        border-color: #ffff00;
+        box-shadow: 0 0 50px #ffff00;
+      }
+    }
+
+    /* 管理員切歌訊息 Overlay */
+    #skipOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 300;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      /* 背景淡入 */
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    /* 印章動畫容器 */
+    .stamp-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      /* 初始狀態 */
+      transform-origin: center;
+      animation: stampDrop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1.25) forwards;
+    }
+
+    @keyframes stampDrop {
+      0% {
+        opacity: 0;
+        transform: scale(3) translateY(-50px) rotate(-15deg);
+        filter: blur(10px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0) rotate(0deg);
+        filter: blur(0);
+      }
+    }
+
+    /* 投票成功 Overlay */
+    #successOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 400;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      /* 讓點擊穿透，不影響操作 */
+    }
+
+    .success-box {
+      font-size: 60px;
+      font-weight: bold;
+      color: #00ff00;
+      text-align: center;
+      text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 30px 60px;
+      border-radius: 20px;
+      border: 6px solid #00ff00;
+      box-shadow: 0 0 50px rgba(0, 255, 0, 0.5);
+      animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% {
+        transform: scale(0.5);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* 跑馬燈樣式 */
+    #marqueeContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      overflow: hidden;
+      pointer-events: none;
+      border-bottom: 1px solid #444;
+    }
+
+    #marqueeText {
+      display: inline-block;
+      white-space: nowrap;
+      font-size: 28px;
+      color: #ffeb3b;
+      font-weight: bold;
+      padding-left: 100%;
+      animation: marqueeScroll 15s linear infinite;
+    }
+
+    @keyframes marqueeScroll {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    /* 彈幕樣式 */
+    #danmaku-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 80%;
+      /* 避開底部 */
+      pointer-events: none;
+      z-index: 150;
+      overflow: hidden;
+    }
+
+    .danmaku-item {
+      position: absolute;
+      white-space: nowrap;
+      font-weight: bold;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 2px black;
+      font-family: "Microsoft JhengHei", sans-serif;
+      will-change: transform;
+      opacity: 0.9;
+    }
+
+    .danmaku-item.scroll {
+      animation: danmakuMove linear forwards;
+    }
+
+    .danmaku-item.fixed-top {
+      left: 50%;
+      transform: translateX(-50%);
+      animation: fadeOut 4s forwards;
+    }
+
+    .danmaku-item.fixed-bottom {
+      left: 50%;
+      transform: translateX(-50%);
+      animation: fadeOut 4s forwards;
+    }
+
+    @keyframes danmakuMove {
+      from {
+        transform: translateX(100vw);
+      }
+
+      to {
+        transform: translateX(-100%);
+      }
+    }
+
+    @keyframes fadeOut {
+      0% {
+        opacity: 1;
+      }
+
+      80% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* SVG Icon styles */
+    .icon {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vertical-align: middle;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .icon-sm {
+      width: 14px;
+      height: 14px;
+      margin-right: 4px;
+      border: none;
+    }
+  </style>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
+    crossorigin="anonymous"></script>
 </head>
 <script>
   // 自動將網址列的 ?room=xxx 參數帶入所有的 API 請求
-  (function() {
+  (function () {
     const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
+    window.fetch = function (url, options) {
       const room = new URLSearchParams(window.location.search).get('room') || 'default';
       // 處理相對路徑與絕對路徑
       let urlObj;
-      try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+      try { urlObj = new URL(url, window.location.origin); } catch (e) { return originalFetch(url, options); }
       if (urlObj.origin !== window.location.origin) return originalFetch(url, options);
       urlObj.searchParams.append('room', room);
       return originalFetch(urlObj.toString(), options);
     };
   })();
 </script>
+
 <body>
 
-<!-- 啟動音效遮罩 (解決瀏覽器自動播放限制) -->
-<div id="startOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;color:#fff;">
-  <div style="font-size:40px;">🔊</div>
-  <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
-  <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
-</div>
+  <svg style="display: none;">
+    <defs>
+      <symbol id="icon-volume" viewBox="0 0 24 24">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </symbol>
+      <symbol id="icon-music" viewBox="0 0 24 24">
+        <path d="M9 18V5l12-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="18" cy="16" r="3"></circle>
+      </symbol>
+      <symbol id="icon-warning" viewBox="0 0 24 24">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </symbol>
+      <symbol id="icon-stop" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </symbol>
+      <symbol id="icon-vote" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </symbol>
+    </defs>
+  </svg>
 
-<!-- 公告跑馬燈 -->
-<div id="marqueeContainer">
-  <div id="marqueeText"></div>
-</div>
-
-<!-- 彈幕層 -->
-<div id="danmaku-container"></div>
-
-<div id="player-container">
-  <div id="player"></div>
-</div>
-
-<div id="sidebar">
-  <div class="header">
-    <div>🎵 排隊歌單</div>
-    <div style="font-size:12px;color:#aaa">自動更新</div>
+  <!-- 啟動音效遮罩 (解決瀏覽器自動播放限制) -->
+  <div id="startOverlay"
+    style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;color:#fff;">
+    <div style="margin-bottom:20px;"><svg class="icon" style="width:60px;height:60px;margin:0;">
+        <use href="#icon-volume"></use>
+      </svg></div>
+    <h1 style="margin:20px 0;">點擊畫面啟用音效</h1>
+    <p style="color:#aaa;">瀏覽器禁止自動播放聲音，請點擊任意處開始</p>
   </div>
-  <div id="queueList"></div>
 
-  <!-- 側邊欄底部廣告 -->
-  <div style="margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; text-align: center;">
-    <div style="font-size:12px; color:#555; margin-bottom:5px;">AD</div>
-    <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-9531303103482317"
-         data-ad-slot="1384134707"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  <!-- 公告跑馬燈 -->
+  <div id="marqueeContainer">
+    <div id="marqueeText"></div>
   </div>
-</div>
 
-<!-- 投票顯示層 -->
-<div id="voteOverlay">
-  <div class="vote-box">
-    <div class="vote-title">⚠️ 正在投票切歌</div>
-    <img id="voteQrImg" class="vote-qr" />
-    <div class="vote-info">目前票數：<span id="voteStatus" style="color:#ffeb3b; font-size:24px;">0/3</span></div>
-    <!-- 圓形倒數 -->
-    <div class="vote-timer-circle">
-      <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle class="bg" cx="50" cy="50" r="45"></circle>
-        <circle id="voteTimerBar" class="fg" cx="50" cy="50" r="45"></circle>
-      </svg>
-      <div class="timer-text"><span id="voteTimeLeft">60</span></div>
+  <!-- 彈幕層 -->
+  <div id="danmaku-container"></div>
+
+  <div id="player-container">
+    <div id="player"></div>
+  </div>
+
+  <div id="sidebar">
+    <div class="header">
+      <div><svg class="icon">
+          <use href="#icon-music"></use>
+        </svg> 排隊歌單</div>
+      <div style="font-size:12px;color:#aaa">自動更新</div>
     </div>
-    <div style="margin-top:10px; font-size:14px; color:#888;">掃描 QR Code 參與投票</div>
+    <div id="queueList"></div>
+
+    <!-- 側邊欄底部廣告 -->
+    <div style="margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; text-align: center;">
+      <div style="font-size:12px; color:#555; margin-bottom:5px;">AD</div>
+      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9531303103482317" data-ad-slot="1384134707"
+        data-ad-format="auto" data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
   </div>
-</div>
 
-<!-- 管理員切歌訊息顯示層 -->
-<div id="skipOverlay">
-  <div class="stamp-container">
-    <h1 id="skipTitle" style="color:#ff4444; font-size:48px; margin-bottom:10px; text-shadow: 0 0 10px #ff0000; border: 4px solid #ff4444; padding: 10px 30px; border-radius: 10px; transform: rotate(-2deg); background: rgba(0,0,0,0.5);">🛑 管理員切歌</h1>
-    
-    <!-- 顯示點歌者與停權訊息 -->
-    <div id="skipRequester" style="font-size:28px; color:#ffeb3b; margin-bottom:5px; font-weight:bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8);"></div>
-    <div id="banMessage" style="font-size:20px; color:#aaa; margin-bottom:20px; display:none;">(點歌者已停權 5 分鐘)</div>
-
-    <img id="skipImageDisplay" style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
-    <div id="skipReasonDisplay" style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
+  <!-- 投票顯示層 -->
+  <div id="voteOverlay">
+    <div class="vote-box">
+      <div class="vote-title"><svg class="icon" style="flex-shrink:0;">
+          <use href="#icon-warning"></use>
+        </svg> 正在投票切歌</div>
+      <img id="voteQrImg" class="vote-qr" />
+      <div class="vote-info">目前票數：<span id="voteStatus" style="color:#ffeb3b; font-size:24px;">0/3</span></div>
+      <!-- 圓形倒數 -->
+      <div class="vote-timer-circle">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle class="bg" cx="50" cy="50" r="45"></circle>
+          <circle id="voteTimerBar" class="fg" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="timer-text"><span id="voteTimeLeft">60</span></div>
+      </div>
+      <div style="margin-top:10px; font-size:14px; color:#888;">掃描 QR Code 參與投票</div>
+    </div>
   </div>
-</div>
 
-<!-- 投票成功顯示層 -->
-<div id="successOverlay">
-  <div class="success-box">✅ 投票通過<br>切歌成功！</div>
-</div>
+  <!-- 管理員切歌訊息顯示層 -->
+  <div id="skipOverlay">
+    <div class="stamp-container">
+      <h1 id="skipTitle"
+        style="color:#ff4444; font-size:48px; margin-bottom:10px; text-shadow: 0 0 10px #ff0000; border: 4px solid #ff4444; padding: 10px 30px; border-radius: 10px; transform: rotate(-2deg); background: rgba(0,0,0,0.5); display: flex; align-items: center;">
+        <svg class="icon" style="width:48px;height:48px;">
+          <use href="#icon-stop"></use>
+        </svg> 管理員切歌
+      </h1>
 
-<script>
-let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
+      <!-- 顯示點歌者與停權訊息 -->
+      <div id="skipRequester"
+        style="font-size:28px; color:#ffeb3b; margin-bottom:5px; font-weight:bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+      </div>
+      <div id="banMessage" style="font-size:20px; color:#aaa; margin-bottom:20px; display:none;">(點歌者已停權 5 分鐘)</div>
 
-// --- 音效引擎 (Web Audio API) ---
-let audioCtx, gainNode;
+      <img id="skipImageDisplay"
+        style="max-width:80%; max-height:50vh; border-radius:10px; margin-bottom:20px; display:none; box-shadow:0 0 30px rgba(255,0,0,0.6); border: 2px solid #555;">
+      <div id="skipReasonDisplay"
+        style="font-size:32px; color:#fff; font-weight:bold; max-width:80%; text-align:center; line-height: 1.5;"></div>
+    </div>
+  </div>
 
-function initAudio() {
-  const audio = document.getElementById('voteSound');
-  if (!audio) return;
+  <!-- 投票成功顯示層 -->
+  <div id="successOverlay">
+    <div class="success-box"><svg class="icon" style="width:80px;height:80px;stroke:#00ff00;margin:0 0 16px 0;">
+        <use href="#icon-check"></use>
+      </svg><br>投票通過<br>切歌成功！</div>
+  </div>
 
-  // 1. 初始化 AudioContext (只做一次)
-  if (!audioCtx) {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContext();
-      const source = audioCtx.createMediaElementSource(audio);
-      gainNode = audioCtx.createGain();
-      gainNode.gain.value = 4.0; // 音量放大 4 倍
-      source.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-    } catch (e) {
-      console.error("Web Audio Init Error:", e);
-    }
-  }
+  <script>
+    let player, currentVideoId = null, voteThreshold = 3, voteTimeout = 60000, currentQueue = [], isVoting = false, lastVoteCount = 0;
 
-  // 2. 確保 Context 處於運作狀態
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-}
+    // --- 音效引擎 (Web Audio API) ---
+    let audioCtx, gainNode;
 
-function playVoteSound() {
-  const audio = document.getElementById('voteSound');
-  if (!audio) return;
-  
-  initAudio(); // 確保已初始化
-  
-  audio.currentTime = 0;
-  audio.play().catch(e => {
-    console.error("播放失敗:", e);
-    // 如果 Web Audio 失敗，嘗試直接播放 (雖然可能比較小聲)
-  });
-}
+    function initAudio() {
+      const audio = document.getElementById('voteSound');
+      if (!audio) return;
 
-function extractVideoId(url) {
-  const m = url && url.match(/v=([^&]+)/);
-  if (m) return m[1];
-  const s = url && url.match(/youtu\.be\/([^?&]+)/);
-  return s ? s[1] : null;
-}
-
-// Load YouTube iframe api
-(function(){
-  const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.body.appendChild(tag);
-})();
-
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player('player', {
-    height: '100%',
-    width: '100%',
-    videoId: '',
-    playerVars: { autoplay: 1, controls: 1, rel:0 },
-    events: {
-      onReady: () => checkNext(),
-      onStateChange: (e) => {
-        if (e.data === YT.PlayerState.ENDED) {
-          fetch('/finish', { method: 'POST' }).then(() => checkNext());
+      // 1. 初始化 AudioContext (只做一次)
+      if (!audioCtx) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContext();
+          const source = audioCtx.createMediaElementSource(audio);
+          gainNode = audioCtx.createGain();
+          gainNode.gain.value = 4.0; // 音量放大 4 倍
+          source.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+        } catch (e) {
+          console.error("Web Audio Init Error:", e);
         }
       }
-    }
-  });
-}
 
-function checkNext() {
-  fetch('/next').then(r => r.json()).then(data => {
-    if (data && data.url) {
-      const vid = extractVideoId(data.url);
-      if (vid) {
-        currentVideoId = vid;
-        player.loadVideoById(vid);
+      // 2. 確保 Context 處於運作狀態
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
       }
-    } else {
-      // no songs
-      document.getElementById('queueList').innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
-      if (player && typeof player.stopVideo === 'function') {
-        player.stopVideo();
-      }
-      currentVideoId = null;
     }
-    refreshQueueSidebar();
-  }).catch(err => console.error('checkNext err', err));
-}
 
-function refreshQueueSidebar() {
-  // 使用 Promise.all 同時取得 queue 與 settings，並加入錯誤處理與 Cache Busting
-  Promise.all([
-    fetch('/queue?_=' + Date.now()).then(r => r.json()),
-    fetch('/settings').then(r => r.ok ? r.json() : {threshold:3, timeout:60000}).catch(() => ({threshold:3, timeout:60000}))
-  ]).then(([queue, settings]) => {
-    voteThreshold = settings.threshold;
-    voteTimeout = settings.timeout;
+    function playVoteSound() {
+      const audio = document.getElementById('voteSound');
+      if (!audio) return;
 
-    currentQueue = queue;
+      initAudio(); // 確保已初始化
 
-    // 自動同步播放器：如果佇列第一首跟目前播放的不一樣，就切歌
-    if (queue.length > 0) {
-      const topVid = extractVideoId(queue[0].url);
-      if (currentVideoId && topVid && topVid !== currentVideoId) {
-        // 偵測到切歌：如果之前處於投票狀態，播放成功音效
-        if (isVoting) {
-          playVoteSound();
-          showSuccessAnimation();
+      audio.currentTime = 0;
+      audio.play().catch(e => {
+        console.error("播放失敗:", e);
+        // 如果 Web Audio 失敗，嘗試直接播放 (雖然可能比較小聲)
+      });
+    }
+
+    function extractVideoId(url) {
+      const m = url && url.match(/v=([^&]+)/);
+      if (m) return m[1];
+      const s = url && url.match(/youtu\.be\/([^?&]+)/);
+      return s ? s[1] : null;
+    }
+
+    // Load YouTube iframe api
+    (function () {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    })();
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: '',
+        playerVars: { autoplay: 1, controls: 1, rel: 0 },
+        events: {
+          onReady: () => checkNext(),
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.ENDED) {
+              fetch('/finish', { method: 'POST' }).then(() => checkNext());
+            }
+          }
         }
-        checkNext();
-      }
-    } else if (currentVideoId) {
-      checkNext();
+      });
     }
 
-    const box = document.getElementById('queueList');
-    box.innerHTML = '';
-    queue.forEach((it, idx) => {
-      const div = document.createElement('div');
-      div.className = 'video-card' + (idx === 0 ? ' playing' : '');
-      div.innerHTML = `
+    function checkNext() {
+      fetch('/next').then(r => r.json()).then(data => {
+        if (data && data.url) {
+          const vid = extractVideoId(data.url);
+          if (vid) {
+            currentVideoId = vid;
+            player.loadVideoById(vid);
+          }
+        } else {
+          // no songs
+          document.getElementById('queueList').innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
+          if (player && typeof player.stopVideo === 'function') {
+            player.stopVideo();
+          }
+          currentVideoId = null;
+        }
+        refreshQueueSidebar();
+      }).catch(err => console.error('checkNext err', err));
+    }
+
+    function refreshQueueSidebar() {
+      // 使用 Promise.all 同時取得 queue 與 settings，並加入錯誤處理與 Cache Busting
+      Promise.all([
+        fetch('/queue?_=' + Date.now()).then(r => r.json()),
+        fetch('/settings').then(r => r.ok ? r.json() : { threshold: 3, timeout: 60000 }).catch(() => ({ threshold: 3, timeout: 60000 }))
+      ]).then(([queue, settings]) => {
+        voteThreshold = settings.threshold;
+        voteTimeout = settings.timeout;
+
+        currentQueue = queue;
+
+        // 自動同步播放器：如果佇列第一首跟目前播放的不一樣，就切歌
+        if (queue.length > 0) {
+          const topVid = extractVideoId(queue[0].url);
+          if (currentVideoId && topVid && topVid !== currentVideoId) {
+            // 偵測到切歌：如果之前處於投票狀態，播放成功音效
+            if (isVoting) {
+              playVoteSound();
+              showSuccessAnimation();
+            }
+            checkNext();
+          }
+        } else if (currentVideoId) {
+          checkNext();
+        }
+
+        const box = document.getElementById('queueList');
+        box.innerHTML = '';
+        queue.forEach((it, idx) => {
+          const div = document.createElement('div');
+          div.className = 'video-card' + (idx === 0 ? ' playing' : '');
+          div.innerHTML = `
         <img class="thumbnail" src="${it.thumbnail}" />
         <div class="info">
-          <div class="title">${idx === 0 ? '▶ ' : (idx+1) + '. '}${it.title}</div>
+          <div class="title">${idx === 0 ? '<svg class="icon icon-sm"><use href="#icon-play"></use></svg> ' : (idx + 1) + '. '}${it.title}</div>
           <div class="channel">${it.channel || ''}</div>
-          ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold;">🗳 ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
+          ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold; display:flex; align-items:center;"><svg class="icon icon-sm" style="margin:0 4px 0 0;"><use href="#icon-vote"></use></svg> ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
         </div>
         <div class="controls">
         </div>
       `;
-      box.appendChild(div);
-    });
-
-    // 處理投票 Overlay
-    const overlay = document.getElementById('voteOverlay');
-    if (queue.length > 0 && queue[0].votes > 0) {
-      const currentVotes = queue[0].votes;
-      if (!isVoting || currentVotes > lastVoteCount) {
-        playVoteSound();
-      }
-      lastVoteCount = currentVotes;
-      isVoting = true; // 標記目前正在投票
-      overlay.style.display = 'flex';
-      document.getElementById('voteStatus').innerText = `${queue[0].votes} / ${voteThreshold}`;
-      
-      updateVoteTimerUI();
-      
-      // 設定 QR Code (使用與右下角相同的連結)
-      const mainQr = document.getElementById('qrcode');
-      if (mainQr) {
-        document.getElementById('voteQrImg').src = mainQr.src;
-      }
-    } else {
-      isVoting = false; // 標記無投票
-      lastVoteCount = 0;
-      overlay.style.display = 'none';
-    }
-
-  }).catch(err => console.error('refreshQueue err', err));
-}
-
-// 本地倒數計時更新 (每秒)
-function updateVoteTimerUI() {
-  if (currentQueue.length > 0 && currentQueue[0].votes > 0) {
-    const item = currentQueue[0];
-    const elapsed = Date.now() - (item.voteStartTime || Date.now());
-    const leftMs = Math.max(0, voteTimeout - elapsed);
-    const left = Math.ceil(leftMs / 1000);
-    
-    const el = document.getElementById('voteTimeLeft');
-    if (el) el.innerText = left;
-
-    const circle = document.getElementById('voteTimerBar');
-    if (circle) {
-      circle.style.strokeDashoffset = 283 * (1 - (leftMs / voteTimeout));
-    }
-  }
-}
-
-// periodic
-setInterval(() => {
-  refreshQueueSidebar();
-  // if player exists and paused or stopped, ensure it's playing next
-  if (player && typeof player.getPlayerState === 'function') {
-    const st = player.getPlayerState();
-    if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
-      // attempt to ensure next is playing
-      // but avoid aggressive reload if user paused manually
-      // only reload if not playing
-      checkNext();
-    }
-  }
-}, 3500);
-
-// 獨立的計時器更新迴圈 (每秒)
-setInterval(updateVoteTimerUI, 1000);
-
-</script>
-
-<script>
-// --- 檢查管理員切歌訊息 ---
-let lastSkipTime = 0;
-
-function checkSkipMessage() {
-  fetch('/skip-message?_=' + Date.now())
-    .then(r => r.json())
-    .then(msg => {
-      if (msg && msg.timestamp && msg.timestamp > lastSkipTime) {
-        lastSkipTime = msg.timestamp;
-        // 只有 10 秒內發生的切歌才顯示 (避免重整網頁時跳出舊訊息)
-        if (Date.now() - msg.timestamp < 10000) {
-          showSkipOverlay(msg);
-        }
-      }
-    });
-}
-
-function showSkipOverlay(msg) {
-  const overlay = document.getElementById('skipOverlay');
-  const titleEl = document.getElementById('skipTitle');
-  const reqEl = document.getElementById('skipRequester');
-  const banEl = document.getElementById('banMessage');
-  const reasonEl = document.getElementById('skipReasonDisplay');
-  const imgEl = document.getElementById('skipImageDisplay');
-  
-  // 判斷是投票切歌還是管理員切歌
-  if (msg.type === 'vote') {
-    titleEl.innerText = "🗳 投票通過切歌";
-    titleEl.style.borderColor = "#06c755";
-    titleEl.style.color = "#06c755";
-    reasonEl.innerText = `歌曲：${msg.title}`;
-    imgEl.style.display = 'none';
-  } else {
-    titleEl.innerText = "🛑 管理員切歌";
-    titleEl.style.borderColor = "#ff4444";
-    titleEl.style.color = "#ff4444";
-    reasonEl.innerText = msg.reason || '（無原因）';
-    if (msg.image) { imgEl.src = msg.image; imgEl.style.display = 'block'; }
-    else { imgEl.style.display = 'none'; }
-  }
-
-  // 顯示點歌者
-  if (msg.requester && msg.requester !== '未知') {
-    reqEl.innerText = `點歌者：${msg.requester}`;
-    const duration = msg.banDuration || 5;
-    banEl.innerText = `(點歌者已停權 ${duration} 分鐘)`;
-    banEl.style.display = 'block';
-  } else {
-    reqEl.innerText = '';
-    banEl.style.display = 'none';
-  }
-  
-  overlay.style.display = 'flex';
-  
-  // 播放提示音
-  playVoteSound();
-
-  // 6 秒後自動消失
-  setTimeout(() => { overlay.style.display = 'none'; }, 6000);
-}
-
-// 每 2 秒檢查一次是否有新訊息
-setInterval(checkSkipMessage, 2000);
-</script>
-
-<script>
-// --- 檢查公告跑馬燈 ---
-let currentMarqueeText = "";
-
-function checkMarquee() {
-  fetch('/marquee?_=' + Date.now())
-    .then(r => r.json())
-    .then(data => {
-      const container = document.getElementById('marqueeContainer');
-      const textEl = document.getElementById('marqueeText');
-      
-      if (data.text && data.text !== "") {
-        if (currentMarqueeText !== data.text) {
-          currentMarqueeText = data.text;
-          textEl.innerText = data.text;
-          container.style.display = 'flex';
-          // 重置動畫
-          textEl.style.animation = 'none';
-          textEl.offsetHeight; /* trigger reflow */
-          textEl.style.animation = 'marqueeScroll 15s linear infinite';
-        }
-      } else {
-        currentMarqueeText = "";
-        container.style.display = 'none';
-      }
-    });
-}
-
-setInterval(checkMarquee, 3000);
-</script>
-
-<script>
-// --- 彈幕系統 ---
-let lastDanmakuTime = Date.now();
-
-function checkDanmaku() {
-  fetch('/danmaku?since=' + lastDanmakuTime)
-    .then(r => r.json())
-    .then(msgs => {
-      if (msgs && msgs.length > 0) {
-        // 更新最後時間戳記
-        const maxTime = Math.max(...msgs.map(m => m.timestamp));
-        if (maxTime > lastDanmakuTime) lastDanmakuTime = maxTime;
-        
-        msgs.forEach((msg, i) => {
-          // 稍微錯開顯示時間 (每則間隔 150ms)，避免瞬間重疊
-          setTimeout(() => spawnDanmaku(msg), i * 150);
+          box.appendChild(div);
         });
-      }
-    })
-    .catch(e => console.error(e));
-}
 
-function spawnDanmaku(msg) {
-  const container = document.getElementById('danmaku-container');
-  if (!container) return;
-  
-  const el = document.createElement('div');
-  el.className = 'danmaku-item';
-  el.innerText = msg.text;
-  
-  // 如果顏色是預設白色，則使用隨機亮色
-  if (!msg.color || msg.color === '#ffffff' || msg.color === '#fff') {
-    el.style.color = `hsl(${Math.floor(Math.random() * 360)}, 100%, 65%)`;
-  } else {
-    el.style.color = msg.color;
-  }
-  
-  // 大小設定
-  let fontSize = '36px';
-  if (msg.size === 'small') fontSize = '24px';
-  if (msg.size === 'large') fontSize = '64px';
-  el.style.fontSize = fontSize;
-  
-  let duration = 4; // 預設動畫時間 (給 top/bottom 用)
+        // 處理投票 Overlay
+        const overlay = document.getElementById('voteOverlay');
+        if (queue.length > 0 && queue[0].votes > 0) {
+          const currentVotes = queue[0].votes;
+          if (!isVoting || currentVotes > lastVoteCount) {
+            playVoteSound();
+          }
+          lastVoteCount = currentVotes;
+          isVoting = true; // 標記目前正在投票
+          overlay.style.display = 'flex';
+          document.getElementById('voteStatus').innerText = `${queue[0].votes} / ${voteThreshold}`;
 
-  // 模式設定
-  if (msg.mode === 'top') {
-    el.classList.add('fixed-top');
-    el.style.top = (10 + Math.random() * 10) + '%'; // 稍微隨機避免完全重疊
-  } else if (msg.mode === 'bottom') {
-    el.classList.add('fixed-bottom');
-    el.style.bottom = (15 + Math.random() * 10) + '%';
-  } else {
-    // 預設滾動
-    el.classList.add('scroll');
-    el.style.top = Math.floor(Math.random() * 80) + '%';
-    duration = 8 + Math.random() * 7;
-    el.style.animationDuration = duration + 's';
-  }
-  
-  container.appendChild(el);
-  
-  // 動畫結束後移除
-  setTimeout(() => {
-    if (el.parentNode) el.parentNode.removeChild(el);
-  }, duration * 1000 + 100);
-}
+          updateVoteTimerUI();
 
-// 每秒檢查一次彈幕
-setInterval(checkDanmaku, 1000);
-</script>
+          // 設定 QR Code (使用與右下角相同的連結)
+          const mainQr = document.getElementById('qrcode');
+          if (mainQr) {
+            document.getElementById('voteQrImg').src = mainQr.src;
+          }
+        } else {
+          isVoting = false; // 標記無投票
+          lastVoteCount = 0;
+          overlay.style.display = 'none';
+        }
 
-<script>
-// --- 音量同步 ---
-let currentServerVolume = 100;
+      }).catch(err => console.error('refreshQueue err', err));
+    }
 
-function checkVolume() {
-  fetch('/settings').then(r => r.json()).then(settings => {
-    if (settings.volume !== undefined && settings.volume !== currentServerVolume) {
-      currentServerVolume = settings.volume;
-      if (player && typeof player.setVolume === 'function') {
-        player.setVolume(currentServerVolume);
+    // 本地倒數計時更新 (每秒)
+    function updateVoteTimerUI() {
+      if (currentQueue.length > 0 && currentQueue[0].votes > 0) {
+        const item = currentQueue[0];
+        const elapsed = Date.now() - (item.voteStartTime || Date.now());
+        const leftMs = Math.max(0, voteTimeout - elapsed);
+        const left = Math.ceil(leftMs / 1000);
+
+        const el = document.getElementById('voteTimeLeft');
+        if (el) el.innerText = left;
+
+        const circle = document.getElementById('voteTimerBar');
+        if (circle) {
+          circle.style.strokeDashoffset = 283 * (1 - (leftMs / voteTimeout));
+        }
       }
     }
-  }).catch(() => {});
-}
-setInterval(checkVolume, 1000);
-</script>
 
-<script>
-function showSuccessAnimation() {
-  const el = document.getElementById('successOverlay');
-  el.style.display = 'flex';
-  setTimeout(() => { el.style.display = 'none'; }, 4000); // 4秒後自動消失
-}
-</script>
+    // periodic
+    setInterval(() => {
+      refreshQueueSidebar();
+      // if player exists and paused or stopped, ensure it's playing next
+      if (player && typeof player.getPlayerState === 'function') {
+        const st = player.getPlayerState();
+        if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
+          // attempt to ensure next is playing
+          // but avoid aggressive reload if user paused manually
+          // only reload if not playing
+          checkNext();
+        }
+      }
+    }, 3500);
 
-<script>
-// 處理音效解鎖
-document.getElementById('startOverlay').addEventListener('click', async function() {
-  initAudio(); // 初始化 Web Audio
-  
-  const audio = document.getElementById('voteSound');
-  if(audio) {
-    // 嘗試播放並立即暫停，以解鎖 iOS/Chrome 的自動播放限制
-    audio.play().then(() => { 
-      audio.pause(); 
-      audio.currentTime = 0; 
-    }).catch(e => console.error("音效解鎖失敗", e));
-  }
-  
-  this.style.display = 'none';
-});
-</script>
+    // 獨立的計時器更新迴圈 (每秒)
+    setInterval(updateVoteTimerUI, 1000);
 
-<div id="qrcodeBox">
-  <div id="qrcodeCard">
-    <img id="qrcode" width="150" alt="點歌 QR Code">
-    <div style="text-align:center; font-size:28px; color:#fff; margin-top:4px;">掃描點歌</div>
+  </script>
+
+  <script>
+    // --- 檢查管理員切歌訊息 ---
+    let lastSkipTime = 0;
+
+    function checkSkipMessage() {
+      fetch('/skip-message?_=' + Date.now())
+        .then(r => r.json())
+        .then(msg => {
+          if (msg && msg.timestamp && msg.timestamp > lastSkipTime) {
+            lastSkipTime = msg.timestamp;
+            // 只有 10 秒內發生的切歌才顯示 (避免重整網頁時跳出舊訊息)
+            if (Date.now() - msg.timestamp < 10000) {
+              showSkipOverlay(msg);
+            }
+          }
+        });
+    }
+
+    function showSkipOverlay(msg) {
+      const overlay = document.getElementById('skipOverlay');
+      const titleEl = document.getElementById('skipTitle');
+      const reqEl = document.getElementById('skipRequester');
+      const banEl = document.getElementById('banMessage');
+      const reasonEl = document.getElementById('skipReasonDisplay');
+      const imgEl = document.getElementById('skipImageDisplay');
+
+      // 判斷是投票切歌還是管理員切歌
+      if (msg.type === 'vote') {
+        titleEl.innerHTML = "<svg class='icon' style='width:48px;height:48px;'><use href='#icon-vote'></use></svg> 投票通過切歌";
+        titleEl.style.borderColor = "#06c755";
+        titleEl.style.color = "#06c755";
+        reasonEl.innerText = `歌曲：${msg.title}`;
+        imgEl.style.display = 'none';
+      } else {
+        titleEl.innerHTML = "<svg class='icon' style='width:48px;height:48px;'><use href='#icon-stop'></use></svg> 管理員切歌";
+        titleEl.style.borderColor = "#ff4444";
+        titleEl.style.color = "#ff4444";
+        reasonEl.innerText = msg.reason || '（無原因）';
+        if (msg.image) { imgEl.src = msg.image; imgEl.style.display = 'block'; }
+        else { imgEl.style.display = 'none'; }
+      }
+
+      // 顯示點歌者
+      if (msg.requester && msg.requester !== '未知') {
+        reqEl.innerText = `點歌者：${msg.requester}`;
+        const duration = msg.banDuration || 5;
+        banEl.innerText = `(點歌者已停權 ${duration} 分鐘)`;
+        banEl.style.display = 'block';
+      } else {
+        reqEl.innerText = '';
+        banEl.style.display = 'none';
+      }
+
+      overlay.style.display = 'flex';
+
+      // 播放提示音
+      playVoteSound();
+
+      // 6 秒後自動消失
+      setTimeout(() => { overlay.style.display = 'none'; }, 6000);
+    }
+
+    // 每 2 秒檢查一次是否有新訊息
+    setInterval(checkSkipMessage, 2000);
+  </script>
+
+  <script>
+    // --- 檢查公告跑馬燈 ---
+    let currentMarqueeText = "";
+
+    function checkMarquee() {
+      fetch('/marquee?_=' + Date.now())
+        .then(r => r.json())
+        .then(data => {
+          const container = document.getElementById('marqueeContainer');
+          const textEl = document.getElementById('marqueeText');
+
+          if (data.text && data.text !== "") {
+            if (currentMarqueeText !== data.text) {
+              currentMarqueeText = data.text;
+              textEl.innerText = data.text;
+              container.style.display = 'flex';
+              // 重置動畫
+              textEl.style.animation = 'none';
+              textEl.offsetHeight; /* trigger reflow */
+              textEl.style.animation = 'marqueeScroll 15s linear infinite';
+            }
+          } else {
+            currentMarqueeText = "";
+            container.style.display = 'none';
+          }
+        });
+    }
+
+    setInterval(checkMarquee, 3000);
+  </script>
+
+  <script>
+    // --- 彈幕系統 ---
+    let lastDanmakuTime = Date.now();
+
+    function checkDanmaku() {
+      fetch('/danmaku?since=' + lastDanmakuTime)
+        .then(r => r.json())
+        .then(msgs => {
+          if (msgs && msgs.length > 0) {
+            // 更新最後時間戳記
+            const maxTime = Math.max(...msgs.map(m => m.timestamp));
+            if (maxTime > lastDanmakuTime) lastDanmakuTime = maxTime;
+
+            msgs.forEach((msg, i) => {
+              // 稍微錯開顯示時間 (每則間隔 150ms)，避免瞬間重疊
+              setTimeout(() => spawnDanmaku(msg), i * 150);
+            });
+          }
+        })
+        .catch(e => console.error(e));
+    }
+
+    function spawnDanmaku(msg) {
+      const container = document.getElementById('danmaku-container');
+      if (!container) return;
+
+      const el = document.createElement('div');
+      el.className = 'danmaku-item';
+      el.innerText = msg.text;
+
+      // 如果顏色是預設白色，則使用隨機亮色
+      if (!msg.color || msg.color === '#ffffff' || msg.color === '#fff') {
+        el.style.color = `hsl(${Math.floor(Math.random() * 360)}, 100%, 65%)`;
+      } else {
+        el.style.color = msg.color;
+      }
+
+      // 大小設定
+      let fontSize = '36px';
+      if (msg.size === 'small') fontSize = '24px';
+      if (msg.size === 'large') fontSize = '64px';
+      el.style.fontSize = fontSize;
+
+      let duration = 4; // 預設動畫時間 (給 top/bottom 用)
+
+      // 模式設定
+      if (msg.mode === 'top') {
+        el.classList.add('fixed-top');
+        el.style.top = (10 + Math.random() * 10) + '%'; // 稍微隨機避免完全重疊
+      } else if (msg.mode === 'bottom') {
+        el.classList.add('fixed-bottom');
+        el.style.bottom = (15 + Math.random() * 10) + '%';
+      } else {
+        // 預設滾動
+        el.classList.add('scroll');
+        el.style.top = Math.floor(Math.random() * 80) + '%';
+        duration = 8 + Math.random() * 7;
+        el.style.animationDuration = duration + 's';
+      }
+
+      container.appendChild(el);
+
+      // 動畫結束後移除
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, duration * 1000 + 100);
+    }
+
+    // 每秒檢查一次彈幕
+    setInterval(checkDanmaku, 1000);
+  </script>
+
+  <script>
+    // --- 音量同步 ---
+    let currentServerVolume = 100;
+
+    function checkVolume() {
+      fetch('/settings').then(r => r.json()).then(settings => {
+        if (settings.volume !== undefined && settings.volume !== currentServerVolume) {
+          currentServerVolume = settings.volume;
+          if (player && typeof player.setVolume === 'function') {
+            player.setVolume(currentServerVolume);
+          }
+        }
+      }).catch(() => { });
+    }
+    setInterval(checkVolume, 1000);
+  </script>
+
+  <script>
+    function showSuccessAnimation() {
+      const el = document.getElementById('successOverlay');
+      el.style.display = 'flex';
+      setTimeout(() => { el.style.display = 'none'; }, 4000); // 4秒後自動消失
+    }
+  </script>
+
+  <script>
+    // 處理音效解鎖
+    document.getElementById('startOverlay').addEventListener('click', async function () {
+      initAudio(); // 初始化 Web Audio
+
+      const audio = document.getElementById('voteSound');
+      if (audio) {
+        // 嘗試播放並立即暫停，以解鎖 iOS/Chrome 的自動播放限制
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }).catch(e => console.error("音效解鎖失敗", e));
+      }
+
+      this.style.display = 'none';
+    });
+  </script>
+
+  <div id="qrcodeBox">
+    <div id="qrcodeCard">
+      <img id="qrcode" width="150" alt="點歌 QR Code">
+      <div style="text-align:center; font-size:28px; color:#fff; margin-top:4px;">掃描點歌</div>
+    </div>
   </div>
-</div>
 
 
-<script>
-// QR Code 指向手機端點歌頁
-const room = new URLSearchParams(window.location.search).get('room') || 'default';
-const qrUrl = `${window.location.origin}/?room=${encodeURIComponent(room)}`;
+  <script>
+    // QR Code 指向手機端點歌頁
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+    const qrUrl = `${window.location.origin}/?room=${encodeURIComponent(room)}`;
 
-document.getElementById("qrcode").src =
-  "https://api.qrserver.com/v1/create-qr-code/?" +
-  "size=200x200&data=" + encodeURIComponent(qrUrl) +
-  "&ecc=L&color=00ffcc&bgcolor=000000&margin=10";
+    document.getElementById("qrcode").src =
+      "https://api.qrserver.com/v1/create-qr-code/?" +
+      "size=200x200&data=" + encodeURIComponent(qrUrl) +
+      "&ecc=L&color=00ffcc&bgcolor=000000&margin=10";
 
-</script>
+  </script>
 
-<!-- 投票成功音效 -->
-<audio id="voteSound" src="vote.mp3" preload="auto" onerror="alert('找不到 vote.mp3 音效檔，請確認檔案是否已放入 public 資料夾')"></audio>
+  <!-- 投票成功音效 -->
+  <audio id="voteSound" src="vote.mp3" preload="auto" onerror="alert('找不到 vote.mp3 音效檔，請確認檔案是否已放入 public 資料夾')"></audio>
 </body>
+
 </html>

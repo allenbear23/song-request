@@ -213,17 +213,56 @@ function updateQueue() {
           thumbHtml = `<img src="${it.thumbnail}" alt="thumbnail">`;
         }
 
+        // 撤回按鈕 (僅限使用者自己的歌曲且不在播放中)
+        let withdrawHtml = '';
+        if (idx > 0 && currentLineProfile && it.requester && currentLineProfile.userId === it.requester.id) {
+          withdrawHtml = `<button class="btn-withdraw" onclick="withdrawSong(${idx}, this)" title="撤回歌曲"><svg class="icon" style="margin:0; width:16px; height:16px;"><use href="#icon-x"></use></svg></button>`;
+        }
+
         li.innerHTML = `
           ${thumbHtml}
           <div class="queue-info">
             <div class="queue-title">${idx + 1}. ${it.title}</div>
             <div class="queue-channel">${it.channel || ''}</div>
           </div>
+          ${withdrawHtml}
         `;
         ul.appendChild(li);
       });
     })
     .catch(err => console.error('updateQueue error', err));
+}
+
+// --- 撤回歌曲 ---
+function withdrawSong(index, btnElement) {
+  if (!confirm("確定要撤回這首歌曲嗎？")) return;
+  if (!currentLineProfile || !currentLineProfile.userId) {
+    showToast("錯誤", "無法驗證您的身分", "error");
+    return;
+  }
+
+  if (btnElement) btnElement.classList.add('btn-loading');
+
+  fetch(`/api/queue/withdraw/${index}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: currentLineProfile.userId })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        showToast("已撤回", data.message || "您已成功撤回該歌曲", "success");
+        updateQueue();
+      } else {
+        showToast("無法撤回", data.error || "發生未知錯誤", "error");
+      }
+    })
+    .catch(err => {
+      showToast("錯誤", "撤回失敗：" + err.message, "error");
+    })
+    .finally(() => {
+      if (btnElement) btnElement.classList.remove('btn-loading');
+    });
 }
 
 // 初始化

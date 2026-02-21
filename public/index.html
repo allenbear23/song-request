@@ -151,6 +151,37 @@
       margin-top: 4px;
     }
 
+    .btn-withdraw {
+      background: none;
+      border: none;
+      padding: 6px;
+      color: #777;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: auto;
+      align-self: center;
+    }
+
+    .btn-withdraw:hover {
+      background: rgba(255, 68, 68, 0.2);
+      color: #ff4444;
+    }
+
+    /* Simple spinning animation for the loading state */
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-loading svg {
+      animation: spin 1s linear infinite;
+    }
+
     hr {
       border: 0;
       height: 1px;
@@ -506,6 +537,11 @@
         stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"></line>
         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
       </symbol>
       <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">

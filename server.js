@@ -590,6 +590,29 @@ app.post('/delete/:index', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Withdraw own song (for users)
+app.post('/api/queue/withdraw/:index', async (req, res) => {
+  const room = getRoom(req);
+  const idx = parseInt(req.params.index);
+  const { userId } = req.body;
+
+  if (!userId) return res.status(400).json({ error: "No user ID provided" });
+
+  const q = await readQueue(room);
+  if (!isNaN(idx) && idx > 0 && idx < q.length) {
+    // Cannot withdraw the currently playing song (idx = 0)
+    const item = q[idx];
+    if (item.requester && item.requester.id === userId) {
+      q.splice(idx, 1);
+      await writeQueue(room, q);
+      return res.json({ ok: true, message: "已撤回您的歌曲" });
+    } else {
+      return res.status(403).json({ error: "您只能撤回自己點播的歌曲" });
+    }
+  }
+  res.status(400).json({ error: "無效的歌曲或無法撤回正在播放的歌曲" });
+});
+
 app.get('/playlist', async (req, res) => {
   const room = getRoom(req);
   const list = await readData('playlist', room, []);

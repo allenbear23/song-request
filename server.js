@@ -164,10 +164,18 @@ function extractVideoId(url) {
 // Fetch full video info: title, channel, thumbnail
 async function fetchVideoInfo(videoId) {
   try {
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YT_API_KEY}`);
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YT_API_KEY}`);
     const data = await res.json();
     if (data && data.items && data.items.length > 0) {
-      const snip = data.items[0].snippet;
+      const item = data.items[0];
+      const snip = item.snippet;
+
+      // 檢查年齡限制
+      const rating = item.contentDetails && item.contentDetails.contentRating;
+      if (rating && rating.ytRating === 'ytAgeRestricted') {
+        return { error: '此影片設有年齡限制，無法在背景播放器中播放' };
+      }
+
       return {
         title: snip.title,
         channel: snip.channelTitle,
@@ -265,21 +273,27 @@ app.get('/search', async (req, res) => {
 
     // 2. 收集所有 videoId，再呼叫 videos API 取得統計資料 (包含觀看次數 snippet 包含發布時間)
     const videoIds = searchData.items.map(it => it.id.videoId).join(',');
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}&key=${YT_API_KEY}`;
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${YT_API_KEY}`;
     const videosRes = await fetch(videosUrl);
     const videosData = await videosRes.json();
 
     if (!videosData.items) return res.json([]);
 
-    // 3. 將資料組合起來
-    const results = videosData.items.map(it => ({
-      videoId: it.id,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
-      thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
-      viewCount: it.statistics.viewCount,
-      publishedAt: it.snippet.publishedAt
-    }));
+    // 3. 過濾掉有年齡限制的影片，並組合資料
+    const results = videosData.items
+      .filter(it => {
+        // 檢查是否有 ytAgeRestricted 標籤
+        const rating = it.contentDetails && it.contentDetails.contentRating;
+        return !(rating && rating.ytRating === 'ytAgeRestricted');
+      })
+      .map(it => ({
+        videoId: it.id,
+        title: it.snippet.title,
+        channel: it.snippet.channelTitle,
+        thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
+        viewCount: it.statistics.viewCount,
+        publishedAt: it.snippet.publishedAt
+      }));
 
     res.json(results);
   } catch (e) {
@@ -350,6 +364,7 @@ app.post('/request', async (req, res) => {
 
     const info = await fetchVideoInfo(videoId);
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
+    if (info.error) return res.status(400).json({ error: info.error });
 
     // 檢查違禁詞
     const bannedWords = await readBannedWords(room);

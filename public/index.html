@@ -286,6 +286,34 @@
       text-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
     }
 
+    .top-icon-btn {
+      background: transparent;
+      color: #ccc;
+      border: 1px solid #444;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .top-icon-btn .icon {
+      margin: 0 !important;
+    }
+
+    .top-icon-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-color: #00ffcc;
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+      transform: translateY(-2px);
+    }
+
     .playing-bar {
       width: 3px;
       background: #00ffcc;
@@ -606,8 +634,25 @@
   </div>
 
   <div class="container room-anim" id="roomPage" style="display:none;">
-    <h1 style="display:flex; justify-content:space-between; align-items:center;">
+    <h1 style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
       <div class="glow-title">
+        <div style="display:flex; gap:8px; margin-right: 12px;">
+          <button onclick="shareRoom()" class="top-icon-btn" title="分享此房間連結">
+            <svg width="20" height="20" class="icon">
+              <use href="#icon-share"></use>
+            </svg>
+          </button>
+          <button onclick="goToPage('/admin.html')" class="top-icon-btn" title="管理後台">
+            <svg width="20" height="20" class="icon">
+              <use href="#icon-settings"></use>
+            </svg>
+          </button>
+          <button onclick="goToPage('/display.html')" class="top-icon-btn" title="播放頁面">
+            <svg width="20" height="20" class="icon">
+              <use href="#icon-tv"></use>
+            </svg>
+          </button>
+        </div>
         <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
           style="animation: spin 3s linear infinite;">
           <circle cx="12" cy="12" r="10" fill="none" stroke="#00ffcc" stroke-width="2" />
@@ -618,25 +663,6 @@
       </div>
       <span id="globalUserInfo" style="font-size:12px; color:#06c755; font-weight:normal; text-shadow:none;"></span>
     </h1>
-    <button onclick="shareRoom()" class="btn-secondary"
-      style="font-size:13px; padding:8px; margin-top:0; margin-bottom:10px;"><svg width="16" height="16"
-        style="vertical-align: middle; margin-right: 4px;" class="icon">
-        <use href="#icon-share"></use>
-      </svg>
-      分享此房間連結</button>
-    <div style="display:flex; gap:10px; margin-bottom:10px;">
-      <button onclick="goToPage('/admin.html')" class="btn-secondary" style="flex:1; font-size:13px; padding:8px;"><svg
-          width="16" height="16" style="vertical-align: middle; margin-right: 4px;" class="icon">
-          <use href="#icon-settings"></use>
-        </svg>
-        管理後台</button>
-      <button onclick="goToPage('/display.html')" class="btn-secondary"
-        style="flex:1; font-size:13px; padding:8px;"><svg width="16" height="16"
-          style="vertical-align: middle; margin-right: 4px;" class="icon">
-          <use href="#icon-tv"></use>
-        </svg>
-        播放頁面</button>
-    </div>
 
     <!-- 搜尋 -->
     <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…">

@@ -143,7 +143,7 @@ function sendRequestFromInput() {
 function sendRequest(url, btnElement = null) {
   // 觸發 reCAPTCHA v3
   grecaptcha.ready(function () {
-    grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'request' }).then(function (token) {
+    grecaptcha.execute(window.APP_CONFIG.RECAPTCHA_SITE_KEY, { action: 'request' }).then(function (token) {
       window.executeSendRequest(url, token, btnElement);
     });
   });

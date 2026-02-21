@@ -1,37 +1,107 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<title>後台管理</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; background: #111; color: #eee; }
-h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
-.card { background: #222; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-label { display: block; margin-bottom: 8px; font-weight: bold; }
-input { padding: 8px; width: 100px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px; }
-button { padding: 8px 16px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-button:hover { background: #0056b3; }
-.msg { margin-top: 10px; color: #4caf50; }
-.queue-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #333; background: #1a1a1a; }
-.queue-item:first-child { background: #2a2a2a; border-left: 4px solid #4caf50; }
-.btn-sm { padding: 4px 8px; font-size: 12px; margin-left: 4px; }
-.btn-del { background: #dc3545; } .btn-del:hover { background: #c82333; }
-</style>
+  <meta charset="utf-8">
+  <title>後台管理</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: Arial;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #111;
+      color: #eee;
+    }
+
+    h1 {
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+
+    .card {
+      background: #222;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input {
+      padding: 8px;
+      width: 100px;
+      background: #333;
+      border: 1px solid #555;
+      color: #fff;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .msg {
+      margin-top: 10px;
+      color: #4caf50;
+    }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      background: #1a1a1a;
+    }
+
+    .queue-item:first-child {
+      background: #2a2a2a;
+      border-left: 4px solid #4caf50;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    .btn-del {
+      background: #dc3545;
+    }
+
+    .btn-del:hover {
+      background: #c82333;
+    }
+  </style>
 </head>
 <!-- 引入 LINE LIFF SDK -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
   // 自動將網址列的 ?room=xxx 參數與 LINE User ID Header 帶入所有的 API 請求
-  (function() {
+  (function () {
     const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
+    window.fetch = function (url, options) {
       let urlObj;
       // 處理 url 為 Request 物件的情況
       if (url instanceof Request) {
-        try { urlObj = new URL(url.url); } catch(e) { return originalFetch(url, options); }
+        try { urlObj = new URL(url.url); } catch (e) { return originalFetch(url, options); }
       } else {
-        try { urlObj = new URL(url, window.location.origin); } catch(e) { return originalFetch(url, options); }
+        try { urlObj = new URL(url, window.location.origin); } catch (e) { return originalFetch(url, options); }
       }
 
       // 只攔截同源 (本站) 的請求，避免影響外部 API (如 LINE LIFF)
@@ -43,409 +113,416 @@ button:hover { background: #0056b3; }
       const lineUserId = sessionStorage.getItem('line_user_id') || '';
 
       urlObj.searchParams.append('room', room);
-      
+
       options = options || {};
       options.headers = options.headers || {};
       options.headers['x-line-user-id'] = lineUserId;
-      
+
       return originalFetch(urlObj.toString(), options);
     };
   })();
 </script>
+
 <body>
 
-<!-- 管理員登入遮罩 -->
-<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center;">
-  <div style="background:#222; padding:30px; border-radius:10px; text-align:center; border:1px solid #444; width:300px;">
-    <h2 style="margin-top:0;">🔐 管理員登入</h2>
-    <p id="roomNameLabel" style="color:#aaa;"></p>
-    <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
-    <button id="btnLogin" onclick="loginLine()" style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE 登入驗證</button>
-  </div>
-</div>
-
-<h1>⚙️ 系統設定</h1>
-
-<div class="card">
-  <h3>投票切歌設定</h3>
-  <label>切歌門檻 (票數)</label>
-  <div style="display:flex; gap:10px; margin-bottom:15px;">
-    <input type="number" id="thresholdInput" min="1" value="3">
-    <button onclick="saveThreshold()">儲存設定</button>
+  <!-- 管理員登入遮罩 -->
+  <div id="loginOverlay"
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <div
+      style="background:#222; padding:30px; border-radius:10px; text-align:center; border:1px solid #444; width:300px;">
+      <h2 style="margin-top:0;">🔐 管理員登入</h2>
+      <p id="roomNameLabel" style="color:#aaa;"></p>
+      <p style="color:#666; font-size:13px; margin-bottom:20px;">此房間需要管理員權限</p>
+      <button id="btnLogin" onclick="loginLine()"
+        style="width:100%; font-size:16px; background:#06c755; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer;">LINE
+        登入驗證</button>
+    </div>
   </div>
 
-  <label>切歌停權時間 (分鐘)</label>
-  <div style="display:flex; gap:10px;">
-    <input type="number" id="banDurationInput" min="1" value="5">
-    <button onclick="saveBanDuration()">儲存設定</button>
+  <h1>⚙️ 系統設定</h1>
+
+  <div class="card">
+    <h3>投票切歌設定</h3>
+    <label>切歌門檻 (票數)</label>
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+      <input type="number" id="thresholdInput" min="1" value="3">
+      <button onclick="saveThreshold()">儲存設定</button>
+    </div>
+
+    <label>切歌停權時間 (分鐘)</label>
+    <div style="display:flex; gap:10px;">
+      <input type="number" id="banDurationInput" min="1" value="5">
+      <button onclick="saveBanDuration()">儲存設定</button>
+    </div>
+
+    <label>自動推薦歌曲</label>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input type="checkbox" id="autoQueueInput" style="width:20px; height:20px; margin:0;">
+      <span style="font-size:14px; color:#ccc;">啟用 (當佇列為空時自動加入熱門歌曲)</span>
+      <button onclick="saveAutoQueue()">儲存設定</button>
+    </div>
+
+    <div id="msg" class="msg"></div>
   </div>
 
-  <label>自動推薦歌曲</label>
-  <div style="display:flex; gap:10px; align-items:center;">
-    <input type="checkbox" id="autoQueueInput" style="width:20px; height:20px; margin:0;">
-    <span style="font-size:14px; color:#ccc;">啟用 (當佇列為空時自動加入熱門歌曲)</span>
-    <button onclick="saveAutoQueue()">儲存設定</button>
+  <div class="card">
+    <h3>🔊 音量控制</h3>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <input type="range" id="volumeInput" min="0" max="100" value="100" oninput="updateVolumeLabel()"
+        onchange="saveVolume()" style="flex:1;">
+      <span id="volumeLabel" style="font-weight:bold; width:40px; text-align:right;">100%</span>
+    </div>
   </div>
 
-  <div id="msg" class="msg"></div>
-</div>
+  <div class="card">
+    <h3>🎵 播放佇列管理</h3>
+    <div style="margin-bottom:10px; display:flex; gap:10px;">
+      <button onclick="refreshQueue()">🔄 重新整理</button>
+    </div>
 
-<div class="card">
-  <h3>🔊 音量控制</h3>
-  <div style="display:flex; align-items:center; gap:10px;">
-    <input type="range" id="volumeInput" min="0" max="100" value="100" oninput="updateVolumeLabel()" onchange="saveVolume()" style="flex:1;">
-    <span id="volumeLabel" style="font-weight:bold; width:40px; text-align:right;">100%</span>
-  </div>
-</div>
+    <!-- 切歌控制區 -->
+    <div style="background:#2a2a2a; padding:10px; border-radius:6px; margin-bottom:10px; border:1px solid #444;">
+      <label>切歌原因 (選填)</label>
+      <input type="text" id="skipReason" style="width:100%; box-sizing:border-box; margin-bottom:8px;"
+        placeholder="例如：版權問題、太難聽...">
+      <label>上傳圖片 (選填)</label>
+      <input type="file" id="skipImage" accept="image/*" style="width:100%; margin-bottom:8px;">
+      <button onclick="skipWithReason()" style="background:#ff4444; width:100%;">⏭ 強制切歌並顯示訊息</button>
+    </div>
 
-<div class="card">
-  <h3>🎵 播放佇列管理</h3>
-  <div style="margin-bottom:10px; display:flex; gap:10px;">
-    <button onclick="refreshQueue()">🔄 重新整理</button>
-  </div>
-  
-  <!-- 切歌控制區 -->
-  <div style="background:#2a2a2a; padding:10px; border-radius:6px; margin-bottom:10px; border:1px solid #444;">
-    <label>切歌原因 (選填)</label>
-    <input type="text" id="skipReason" style="width:100%; box-sizing:border-box; margin-bottom:8px;" placeholder="例如：版權問題、太難聽...">
-    <label>上傳圖片 (選填)</label>
-    <input type="file" id="skipImage" accept="image/*" style="width:100%; margin-bottom:8px;">
-    <button onclick="skipWithReason()" style="background:#ff4444; width:100%;">⏭ 強制切歌並顯示訊息</button>
+    <div id="adminQueueList"></div>
   </div>
 
-  <div id="adminQueueList"></div>
-</div>
-
-<div class="card">
-  <h3>📢 發送公告 (跑馬燈)</h3>
-  <div style="display:flex; gap:10px;">
-    <input type="text" id="marqueeInput" placeholder="輸入公告內容..." style="flex:1; width:auto;">
-    <button onclick="sendMarquee()">發送</button>
-    <button onclick="clearMarquee()" style="background:#666;">清除</button>
+  <div class="card">
+    <h3>📢 發送公告 (跑馬燈)</h3>
+    <div style="display:flex; gap:10px;">
+      <input type="text" id="marqueeInput" placeholder="輸入公告內容..." style="flex:1; width:auto;">
+      <button onclick="sendMarquee()">發送</button>
+      <button onclick="clearMarquee()" style="background:#666;">清除</button>
+    </div>
   </div>
-</div>
 
-<div class="card">
-  <h3>🚫 違禁詞管理 (標題過濾)</h3>
-  <div style="display:flex; gap:10px; margin-bottom:10px;">
-    <input type="text" id="bannedWordInput" placeholder="輸入違禁詞..." style="flex:1;">
-    <button onclick="addBannedWord()">新增</button>
+  <div class="card">
+    <h3>🚫 違禁詞管理 (標題過濾)</h3>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <input type="text" id="bannedWordInput" placeholder="輸入違禁詞..." style="flex:1;">
+      <button onclick="addBannedWord()">新增</button>
+    </div>
+    <div id="bannedWordsList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
   </div>
-  <div id="bannedWordsList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-</div>
 
-<div class="card">
-  <h3>🚫 停權名單管理</h3>
-  <div style="margin-bottom:10px;">
-    <button onclick="refreshBannedList()">🔄 重新整理名單</button>
+  <div class="card">
+    <h3>🚫 停權名單管理</h3>
+    <div style="margin-bottom:10px;">
+      <button onclick="refreshBannedList()">🔄 重新整理名單</button>
+    </div>
+    <div id="bannedList"></div>
   </div>
-  <div id="bannedList"></div>
-</div>
 
-<div class="card">
-  <h3>其他功能</h3>
-  <p>
-    <a href="#" onclick="openLink('/display.html')" style="color:#4da3ff">開啟播放頁面</a> | 
-    <a href="#" onclick="openLink('/')" style="color:#4da3ff">開啟點歌頁面</a>
-  </p>
-</div>
+  <div class="card">
+    <h3>其他功能</h3>
+    <p>
+      <a href="#" onclick="openLink('/display.html')" style="color:#4da3ff">開啟播放頁面</a> |
+      <a href="#" onclick="openLink('/')" style="color:#4da3ff">開啟點歌頁面</a>
+    </p>
+  </div>
 
-<script>
-  // --- 登入邏輯 ---
-  const LIFF_ID = '2008832076-eA3l2ogi';
-  const currentRoom = new URLSearchParams(window.location.search).get('room') || 'default';
-  document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
+  <script>
+    // --- 登入邏輯 ---
+    window.APP_CONFIG = {};
+    const currentRoom = new URLSearchParams(window.location.search).get('room') || 'default';
+    document.getElementById('roomNameLabel').innerText = `房間：${currentRoom}`;
 
-  function checkLoginAndInit() {
-    const btn = document.getElementById('btnLogin');
-    
-    // 1. 優先檢查 sessionStorage (從 index.html 帶過來的登入狀態)
-    const storedUserId = sessionStorage.getItem('line_user_id');
-    if (storedUserId) {
-      fetch('/api/room/login')
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) {
-            document.getElementById('loginOverlay').style.display = 'none';
-            initPage();
-            return; // 驗證成功，直接結束，不需執行 LIFF init
-          } else {
-            // 驗證失敗 (可能換房間了)，清除舊 ID 並繼續執行 LIFF 流程
-            sessionStorage.removeItem('line_user_id');
-            startLiffFlow(btn);
-          }
-        }).catch(() => startLiffFlow(btn));
-    } else {
-      startLiffFlow(btn);
+    function checkLoginAndInit() {
+      const btn = document.getElementById('btnLogin');
+
+      // 1. 優先檢查 sessionStorage (從 index.html 帶過來的登入狀態)
+      const storedUserId = sessionStorage.getItem('line_user_id');
+      if (storedUserId) {
+        fetch('/api/room/login')
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              document.getElementById('loginOverlay').style.display = 'none';
+              initPage();
+              return; // 驗證成功，直接結束，不需執行 LIFF init
+            } else {
+              // 驗證失敗 (可能換房間了)，清除舊 ID 並繼續執行 LIFF 流程
+              sessionStorage.removeItem('line_user_id');
+              startLiffFlow(btn);
+            }
+          }).catch(() => startLiffFlow(btn));
+      } else {
+        startLiffFlow(btn);
+      }
     }
-  }
 
-  function startLiffFlow(btn) {
-    if(btn) btn.innerText = "載入中...";
-    
-    liff.init({ liffId: LIFF_ID }).then(() => {
-      if (liff.isLoggedIn()) {
-        liff.getProfile()
-        .then(profile => {
-          // 儲存 ID 供 fetch interceptor 使用
-          sessionStorage.setItem('line_user_id', profile.userId);
-          
-          // 驗證是否為該房間管理員
-          return fetch('/api/room/login');
-        })
+    function startLiffFlow(btn) {
+      if (btn) btn.innerText = "載入中...";
+
+      liff.init({ liffId: window.APP_CONFIG.LIFF_ID }).then(() => {
+        if (liff.isLoggedIn()) {
+          liff.getProfile()
+            .then(profile => {
+              // 儲存 ID 供 fetch interceptor 使用
+              sessionStorage.setItem('line_user_id', profile.userId);
+
+              // 驗證是否為該房間管理員
+              return fetch('/api/room/login');
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.ok) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                initPage();
+              } else {
+                alert(data.error || '權限不足：您不是此房間的管理員');
+                if (btn) btn.innerText = "LINE 登入驗證";
+              }
+            })
+            .catch(err => {
+              console.error('Profile/Login Error', err);
+              alert('登入驗證失敗: ' + err);
+              if (btn) btn.innerText = "LINE 登入驗證 (重試)";
+            });
+        } else {
+          document.getElementById('loginOverlay').style.display = 'flex';
+
+          if (btn) btn.innerText = "LINE 登入驗證";
+        }
+      }).catch(err => {
+        console.error('LIFF Init Error', err);
+        alert('LINE 登入初始化失敗: ' + err);
+        if (btn) btn.innerText = "LINE 登入驗證 (重試)";
+      });
+    }
+
+    function loginLine() {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      url.searchParams.delete('state');
+      url.searchParams.delete('liffClientId');
+      url.searchParams.delete('liffRedirectUri');
+      liff.login({ redirectUri: url.toString() });
+    }
+
+    function initPage() {
+      // 載入目前設定
+      fetch('/settings')
         .then(r => r.json())
         .then(data => {
-          if (data.ok) {
-            document.getElementById('loginOverlay').style.display = 'none';
-            initPage();
-          } else {
-            alert(data.error || '權限不足：您不是此房間的管理員');
-            if(btn) btn.innerText = "LINE 登入驗證";
+          document.getElementById('thresholdInput').value = data.threshold;
+          if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
+          if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
+          if (data.volume !== undefined) {
+            document.getElementById('volumeInput').value = data.volume;
+            document.getElementById('volumeLabel').innerText = data.volume + '%';
           }
-        })
-        .catch(err => {
-          console.error('Profile/Login Error', err);
-          alert('登入驗證失敗: ' + err);
-          if(btn) btn.innerText = "LINE 登入驗證 (重試)";
         });
-      } else {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        
-        if(btn) btn.innerText = "LINE 登入驗證";
-      }
-    }).catch(err => {
-      console.error('LIFF Init Error', err);
-      alert('LINE 登入初始化失敗: ' + err);
-      if(btn) btn.innerText = "LINE 登入驗證 (重試)";
-    });
-  }
 
-  function loginLine() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('code');
-    url.searchParams.delete('state');
-    url.searchParams.delete('liffClientId');
-    url.searchParams.delete('liffRedirectUri');
-    liff.login({ redirectUri: url.toString() });
-  }
-
-  function initPage() {
-  // 載入目前設定
-  fetch('/settings')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('thresholdInput').value = data.threshold;
-      if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
-      if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
-      if (data.volume !== undefined) {
-        document.getElementById('volumeInput').value = data.volume;
-        document.getElementById('volumeLabel').innerText = data.volume + '%';
-      }
-    });
-    
-    refreshQueue();
-    refreshBannedList();
-    refreshBannedWords();
-  }
-
-  function openLink(path) {
-    const room = new URLSearchParams(window.location.search).get('room') || 'default';
-    window.open(path + '?room=' + encodeURIComponent(room), '_blank');
-  }
-
-  function saveThreshold() {
-    const val = document.getElementById('thresholdInput').value;
-    fetch('/admin/threshold', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threshold: val })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.ok) document.getElementById('msg').innerText = "✅ 設定已更新為 " + data.threshold + " 票";
-      else alert(data.error);
-    })
-    .catch(err => alert("儲存失敗"));
-  }
-
-  function saveBanDuration() {
-    const val = document.getElementById('banDurationInput').value;
-    fetch('/admin/ban-duration', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ banDuration: val })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.ok) document.getElementById('msg').innerText = "✅ 停權時間已更新為 " + data.banDuration + " 分鐘";
-      else alert(data.error);
-    })
-    .catch(err => alert("儲存失敗"));
-  }
-
-  function saveAutoQueue() {
-    const enabled = document.getElementById('autoQueueInput').checked;
-    fetch('/admin/auto-queue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.ok) document.getElementById('msg').innerText = "✅ 自動推薦已" + (data.autoQueue ? "啟用" : "關閉");
-      else alert(data.error);
-    })
-    .catch(err => alert("儲存失敗"));
-  }
-
-  function updateVolumeLabel() {
-    const val = document.getElementById('volumeInput').value;
-    document.getElementById('volumeLabel').innerText = val + '%';
-  }
-
-  function saveVolume() {
-    const val = document.getElementById('volumeInput').value;
-    fetch('/admin/volume', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ volume: val })
-    });
-  }
-
-  // --- 佇列管理功能 ---
-  function refreshQueue() {
-    fetch('/queue')
-      .then(r => r.json())
-      .then(q => renderQueue(q));
-  }
-
-  function renderQueue(q) {
-    const list = document.getElementById('adminQueueList');
-    list.innerHTML = '';
-    if(q.length === 0) {
-      list.innerHTML = '<div style="color:#777; padding:10px;">目前沒有歌曲</div>';
-      return;
+      refreshQueue();
+      refreshBannedList();
+      refreshBannedWords();
     }
-    
-    q.forEach((item, idx) => {
-      const div = document.createElement('div');
-      div.className = 'queue-item';
-      
-      // 標題區
-      const info = document.createElement('div');
-      if (idx === 0) {
-        info.innerHTML = `<span style="color:#4caf50; font-weight:bold">▶ 正在播放：</span> ${item.title}`;
-      } else {
-        info.innerText = `${idx}. ${item.title}`;
-      }
-      
-      // 按鈕區
-      const actions = document.createElement('div');
-      
-      // 只有排隊中的歌曲 (index > 0) 可以移動或刪除
-      if (idx > 0) {
-        // 上移 (如果不是第一首排隊歌曲)
-        if (idx > 1) {
-          actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx-1})">⬆</button>`;
-        }
-        // 下移 (如果不是最後一首)
-        if (idx < q.length - 1) {
-          actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx+1})">⬇</button>`;
-        }
-        // 刪除
-        actions.innerHTML += `<button class="btn-sm btn-del" onclick="deleteItem(${idx})">❌</button>`;
-      }
-      
-      div.appendChild(info);
-      div.appendChild(actions);
-      list.appendChild(div);
-    });
-  }
 
-  // 帶原因與圖片的切歌
-  function skipWithReason() {
-    if(!confirm('確定要強制切歌嗎？')) return;
-    
-    const reason = document.getElementById('skipReason').value;
-    const fileInput = document.getElementById('skipImage');
-    const file = fileInput.files[0];
-    
-    const sendSkip = (base64Image) => {
-      fetch('/admin/skip', {
+    function openLink(path) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      window.open(path + '?room=' + encodeURIComponent(room), '_blank');
+    }
+
+    function saveThreshold() {
+      const val = document.getElementById('thresholdInput').value;
+      fetch('/admin/threshold', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, image: base64Image })
+        body: JSON.stringify({ threshold: val })
       })
-      .then(r => r.json())
-      .then(data => {
-        if(data.ok) {
-          alert('已切歌');
-          refreshQueue();
-          // 清空輸入
-          document.getElementById('skipReason').value = '';
-          fileInput.value = '';
-        } else {
-          alert('失敗: ' + (data.error || '未知錯誤'));
-        }
-      })
-      .catch(err => alert('錯誤'));
-    };
-
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(e) { sendSkip(e.target.result); };
-      reader.readAsDataURL(file);
-    } else {
-      sendSkip(null);
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) document.getElementById('msg').innerText = "✅ 設定已更新為 " + data.threshold + " 票";
+          else alert(data.error);
+        })
+        .catch(err => alert("儲存失敗"));
     }
-  }
 
-  function deleteItem(idx) { if(confirm('確定要刪除這首歌嗎？')) fetch('/delete/' + idx, { method: 'POST' }).then(refreshQueue); }
-  function moveItem(oldIndex, newIndex) {
-    fetch('/admin/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);
-  }
+    function saveBanDuration() {
+      const val = document.getElementById('banDurationInput').value;
+      fetch('/admin/ban-duration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ banDuration: val })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) document.getElementById('msg').innerText = "✅ 停權時間已更新為 " + data.banDuration + " 分鐘";
+          else alert(data.error);
+        })
+        .catch(err => alert("儲存失敗"));
+    }
 
-  // --- 公告管理功能 ---
-  function sendMarquee() {
-    const text = document.getElementById('marqueeInput').value.trim();
-    if (!text) return;
-    fetch('/admin/marquee', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    }).then(() => { alert('公告已發送'); document.getElementById('marqueeInput').value = ''; });
-  }
+    function saveAutoQueue() {
+      const enabled = document.getElementById('autoQueueInput').checked;
+      fetch('/admin/auto-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) document.getElementById('msg').innerText = "✅ 自動推薦已" + (data.autoQueue ? "啟用" : "關閉");
+          else alert(data.error);
+        })
+        .catch(err => alert("儲存失敗"));
+    }
 
-  function clearMarquee() {
-    if(!confirm('確定要清除目前的公告嗎？')) return;
-    fetch('/admin/marquee', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: "" })
-    }).then(() => alert('公告已清除'));
-  }
+    function updateVolumeLabel() {
+      const val = document.getElementById('volumeInput').value;
+      document.getElementById('volumeLabel').innerText = val + '%';
+    }
 
-  // --- 停權管理功能 ---
-  function refreshBannedList() {
-    const listDiv = document.getElementById('bannedList');
-    listDiv.innerHTML = '載入中...';
-    
-    fetch('/admin/banned-users')
-      .then(r => r.json())
-      .then(list => {
-        listDiv.innerHTML = '';
-        if (list.length === 0) {
-          listDiv.innerHTML = '<div style="color:#777; padding:10px;">目前沒有被停權的使用者</div>';
-          return;
+    function saveVolume() {
+      const val = document.getElementById('volumeInput').value;
+      fetch('/admin/volume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: val })
+      });
+    }
+
+    // --- 佇列管理功能 ---
+    function refreshQueue() {
+      fetch('/queue')
+        .then(r => r.json())
+        .then(q => renderQueue(q));
+    }
+
+    function renderQueue(q) {
+      const list = document.getElementById('adminQueueList');
+      list.innerHTML = '';
+      if (q.length === 0) {
+        list.innerHTML = '<div style="color:#777; padding:10px;">目前沒有歌曲</div>';
+        return;
+      }
+
+      q.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'queue-item';
+
+        // 標題區
+        const info = document.createElement('div');
+        if (idx === 0) {
+          info.innerHTML = `<span style="color:#4caf50; font-weight:bold">▶ 正在播放：</span> ${item.title}`;
+        } else {
+          info.innerText = `${idx}. ${item.title}`;
         }
-        
-        list.forEach(u => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #333; background:#1a1a1a; margin-bottom:5px; border-radius:4px;';
-          
-          const timeLeft = Math.ceil((u.bannedUntil - Date.now()) / 60000);
-          
-          row.innerHTML = `
+
+        // 按鈕區
+        const actions = document.createElement('div');
+
+        // 只有排隊中的歌曲 (index > 0) 可以移動或刪除
+        if (idx > 0) {
+          // 上移 (如果不是第一首排隊歌曲)
+          if (idx > 1) {
+            actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx - 1})">⬆</button>`;
+          }
+          // 下移 (如果不是最後一首)
+          if (idx < q.length - 1) {
+            actions.innerHTML += `<button class="btn-sm" onclick="moveItem(${idx}, ${idx + 1})">⬇</button>`;
+          }
+          // 刪除
+          actions.innerHTML += `<button class="btn-sm btn-del" onclick="deleteItem(${idx})">❌</button>`;
+        }
+
+        div.appendChild(info);
+        div.appendChild(actions);
+        list.appendChild(div);
+      });
+    }
+
+    // 帶原因與圖片的切歌
+    function skipWithReason() {
+      if (!confirm('確定要強制切歌嗎？')) return;
+
+      const reason = document.getElementById('skipReason').value;
+      const fileInput = document.getElementById('skipImage');
+      const file = fileInput.files[0];
+
+      const sendSkip = (base64Image) => {
+        fetch('/admin/skip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason, image: base64Image })
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              alert('已切歌');
+              refreshQueue();
+              // 清空輸入
+              document.getElementById('skipReason').value = '';
+              fileInput.value = '';
+            } else {
+              alert('失敗: ' + (data.error || '未知錯誤'));
+            }
+          })
+          .catch(err => alert('錯誤'));
+      };
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) { sendSkip(e.target.result); };
+        reader.readAsDataURL(file);
+      } else {
+        sendSkip(null);
+      }
+    }
+
+    function deleteItem(idx) { if (confirm('確定要刪除這首歌嗎？')) fetch('/delete/' + idx, { method: 'POST' }).then(refreshQueue); }
+    function moveItem(oldIndex, newIndex) {
+      fetch('/admin/reorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oldIndex, newIndex }) }).then(refreshQueue);
+    }
+
+    // --- 公告管理功能 ---
+    function sendMarquee() {
+      const text = document.getElementById('marqueeInput').value.trim();
+      if (!text) return;
+      fetch('/admin/marquee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      }).then(() => { alert('公告已發送'); document.getElementById('marqueeInput').value = ''; });
+    }
+
+    function clearMarquee() {
+      if (!confirm('確定要清除目前的公告嗎？')) return;
+      fetch('/admin/marquee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: "" })
+      }).then(() => alert('公告已清除'));
+    }
+
+    // --- 停權管理功能 ---
+    function refreshBannedList() {
+      const listDiv = document.getElementById('bannedList');
+      listDiv.innerHTML = '載入中...';
+
+      fetch('/admin/banned-users')
+        .then(r => r.json())
+        .then(list => {
+          listDiv.innerHTML = '';
+          if (list.length === 0) {
+            listDiv.innerHTML = '<div style="color:#777; padding:10px;">目前沒有被停權的使用者</div>';
+            return;
+          }
+
+          list.forEach(u => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #333; background:#1a1a1a; margin-bottom:5px; border-radius:4px;';
+
+            const timeLeft = Math.ceil((u.bannedUntil - Date.now()) / 60000);
+
+            row.innerHTML = `
             <div style="display:flex; align-items:center;">
               <img src="${u.picture || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; border-radius:50%; margin-right:10px; object-fit:cover;">
               <div>
@@ -455,63 +532,75 @@ button:hover { background: #0056b3; }
             </div>
             <button onclick="unbanUser('${u.id}')" style="background:#28a745; padding:6px 12px; font-size:13px;">🔓 解禁</button>
           `;
-          listDiv.appendChild(row);
+            listDiv.appendChild(row);
+          });
         });
-      });
-  }
+    }
 
-  function unbanUser(userId) {
-    if(!confirm('確定要解除此人的停權嗎？')) return;
-    fetch('/admin/unban', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId }) }).then(() => { alert('已解禁'); refreshBannedList(); });
-  }
+    function unbanUser(userId) {
+      if (!confirm('確定要解除此人的停權嗎？')) return;
+      fetch('/admin/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) }).then(() => { alert('已解禁'); refreshBannedList(); });
+    }
 
-  // --- 違禁詞管理功能 ---
-  function refreshBannedWords() {
-    fetch('/admin/banned-words')
-      .then(r => r.json())
-      .then(words => {
-        const div = document.getElementById('bannedWordsList');
-        div.innerHTML = '';
-        if (words.length === 0) {
-          div.innerHTML = '<span style="color:#777;">無違禁詞</span>';
-          return;
-        }
-        words.forEach(w => {
-          const tag = document.createElement('span');
-          tag.style.cssText = 'background:#333; padding:4px 8px; border-radius:4px; display:flex; align-items:center; border:1px solid #555;';
-          tag.innerHTML = `${w} <span onclick="removeBannedWord('${w}')" style="margin-left:6px; cursor:pointer; color:#ff4444; font-weight:bold;">&times;</span>`;
-          div.appendChild(tag);
+    // --- 違禁詞管理功能 ---
+    function refreshBannedWords() {
+      fetch('/admin/banned-words')
+        .then(r => r.json())
+        .then(words => {
+          const div = document.getElementById('bannedWordsList');
+          div.innerHTML = '';
+          if (words.length === 0) {
+            div.innerHTML = '<span style="color:#777;">無違禁詞</span>';
+            return;
+          }
+          words.forEach(w => {
+            const tag = document.createElement('span');
+            tag.style.cssText = 'background:#333; padding:4px 8px; border-radius:4px; display:flex; align-items:center; border:1px solid #555;';
+            tag.innerHTML = `${w} <span onclick="removeBannedWord('${w}')" style="margin-left:6px; cursor:pointer; color:#ff4444; font-weight:bold;">&times;</span>`;
+            div.appendChild(tag);
+          });
         });
+    }
+
+    function addBannedWord() {
+      const input = document.getElementById('bannedWordInput');
+      const word = input.value.trim();
+      if (!word) return;
+
+      fetch('/admin/banned-words/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word })
+      }).then(() => {
+        input.value = '';
+        refreshBannedWords();
       });
-  }
+    }
 
-  function addBannedWord() {
-    const input = document.getElementById('bannedWordInput');
-    const word = input.value.trim();
-    if (!word) return;
-    
-    fetch('/admin/banned-words/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word })
-    }).then(() => {
-      input.value = '';
-      refreshBannedWords();
-    });
-  }
+    function removeBannedWord(word) {
+      if (!confirm(`確定要移除違禁詞 "${word}" 嗎？`)) return;
+      fetch('/admin/banned-words/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word })
+      }).then(refreshBannedWords);
+    }
 
-  function removeBannedWord(word) {
-    if(!confirm(`確定要移除違禁詞 "${word}" 嗎？`)) return;
-    fetch('/admin/banned-words/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word })
-    }).then(refreshBannedWords);
-  }
+    async function initializeConfig() {
+      try {
+        const res = await fetch('/api/config');
+        window.APP_CONFIG = await res.json();
+        checkLoginAndInit();
+      } catch (err) {
+        console.error('Failed to load config', err);
+        alert('無法取得系統設定，請重新整理頁面。');
+      }
+    }
 
-  // 初始載入
-  checkLoginAndInit();
-</script>
+    // 初始載入
+    initializeConfig();
+  </script>
 
 </body>
+
 </html>

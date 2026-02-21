@@ -1,168 +1,260 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<title>建立房間 - 放歌啦</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; background: #111; color: #eee; text-align: center; }
-h1 { margin-bottom: 30px; color: #fff; }
-.card { background: #222; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-input { padding: 12px; width: 80%; font-size: 18px; background: #333; border: 1px solid #555; color: #fff; border-radius: 6px; margin-bottom: 15px; text-align: center; }
-button { padding: 12px 30px; font-size: 18px; background: #007bff; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-button:hover { background: #0056b3; transform: scale(1.05); }
-.links { margin-top: 30px; display: none; text-align: left; border-top: 1px solid #333; padding-top: 20px; }
-.link-item { background: #1a1a1a; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-.link-item a { color: #4da3ff; text-decoration: none; font-weight: bold; word-break: break-all; }
-.link-label { font-size: 14px; color: #aaa; margin-bottom: 4px; }
-.btn-copy { background: #444; font-size: 14px; padding: 6px 12px; margin-left: 10px; }
-</style>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
-     crossorigin="anonymous"></script>
+  <meta charset="utf-8">
+  <title>建立房間 - 放歌啦</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: Arial;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #111;
+      color: #eee;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+      color: #fff;
+    }
+
+    .card {
+      background: #222;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    input {
+      padding: 12px;
+      width: 80%;
+      font-size: 18px;
+      background: #333;
+      border: 1px solid #555;
+      color: #fff;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    button {
+      padding: 12px 30px;
+      font-size: 18px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #0056b3;
+      transform: scale(1.05);
+    }
+
+    .links {
+      margin-top: 30px;
+      display: none;
+      text-align: left;
+      border-top: 1px solid #333;
+      padding-top: 20px;
+    }
+
+    .link-item {
+      background: #1a1a1a;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .link-item a {
+      color: #4da3ff;
+      text-decoration: none;
+      font-weight: bold;
+      word-break: break-all;
+    }
+
+    .link-label {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    .btn-copy {
+      background: #444;
+      font-size: 14px;
+      padding: 6px 12px;
+      margin-left: 10px;
+    }
+  </style>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9531303103482317"
+    crossorigin="anonymous"></script>
 </head>
 <!-- 引入 LINE LIFF SDK -->
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
 <body>
 
-<h1>🏠 建立或加入房間</h1>
+  <h1>🏠 建立或加入房間</h1>
 
-<div class="card">
-  <!-- 未登入時顯示 -->
-  <div id="loginSection">
-    <p style="color:#aaa; margin-bottom:20px;">請先登入 LINE 帳號以建立專屬房間</p>
-    <button id="btnLogin" onclick="loginLine()" style="background:#06c755;">LINE 登入</button>
-  </div>
-
-  <!-- 登入後顯示 -->
-  <div id="createSection" style="display:none;">
-    <p style="color:#aaa; margin-bottom:20px;">您已登入，點擊下方按鈕進入您的專屬房間</p>
-    <button onclick="createRoom()" style="background:#007bff; color:#fff; font-size:20px; padding:15px 40px;">進入我的專屬房間</button>
-  </div>
-
-  <div id="resultArea" class="links">
-    <h3 style="margin-top:0;">🚀 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
-    
-    <div class="link-item">
-      <div style="flex:1">
-        <div class="link-label">🎤 點歌頁面 (給來賓)</div>
-        <a id="guestLink" href="#" target="_blank">...</a>
-      </div>
-      <button class="btn-copy" onclick="copyLink('guestLink')">複製</button>
+  <div class="card">
+    <!-- 未登入時顯示 -->
+    <div id="loginSection">
+      <p style="color:#aaa; margin-bottom:20px;">請先登入 LINE 帳號以建立專屬房間</p>
+      <button id="btnLogin" onclick="loginLine()" style="background:#06c755;">LINE 登入</button>
     </div>
 
-    <div class="link-item">
-      <div style="flex:1">
-        <div class="link-label">📺 播放頁面 (大螢幕)</div>
-        <a id="displayLink" href="#" target="_blank">...</a>
-      </div>
-      <button class="btn-copy" onclick="copyLink('displayLink')">複製</button>
+    <!-- 登入後顯示 -->
+    <div id="createSection" style="display:none;">
+      <p style="color:#aaa; margin-bottom:20px;">您已登入，點擊下方按鈕進入您的專屬房間</p>
+      <button onclick="createRoom()"
+        style="background:#007bff; color:#fff; font-size:20px; padding:15px 40px;">進入我的專屬房間</button>
     </div>
 
-    <div class="link-item">
-      <div style="flex:1">
-        <div class="link-label">⚙️ 後台管理 (控制台)</div>
-        <a id="adminLink" href="#" target="_blank">...</a>
+    <div id="resultArea" class="links">
+      <h3 style="margin-top:0;">🚀 房間連結已生成：<span id="roomNameDisplay" style="color:#ffeb3b"></span></h3>
+
+      <div class="link-item">
+        <div style="flex:1">
+          <div class="link-label">🎤 點歌頁面 (給來賓)</div>
+          <a id="guestLink" href="#" target="_blank">...</a>
+        </div>
+        <button class="btn-copy" onclick="copyLink('guestLink')">複製</button>
       </div>
-      <button class="btn-copy" onclick="copyLink('adminLink')">複製</button>
+
+      <div class="link-item">
+        <div style="flex:1">
+          <div class="link-label">📺 播放頁面 (大螢幕)</div>
+          <a id="displayLink" href="#" target="_blank">...</a>
+        </div>
+        <button class="btn-copy" onclick="copyLink('displayLink')">複製</button>
+      </div>
+
+      <div class="link-item">
+        <div style="flex:1">
+          <div class="link-label">⚙️ 後台管理 (控制台)</div>
+          <a id="adminLink" href="#" target="_blank">...</a>
+        </div>
+        <button class="btn-copy" onclick="copyLink('adminLink')">複製</button>
+      </div>
+    </div>
+
+    <div
+      style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
+      <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
+      <ol style="padding-left: 20px; margin: 0;">
+        <li><b>登入 LINE</b> 後點擊按鈕。</li>
+        <li>系統會自動為您分配一個<b>專屬房間</b>。</li>
+        <li>將<b>「點歌頁面」</b>連結分享給朋友，讓大家用手機點歌。</li>
+        <li>在電視或大螢幕上開啟<b>「播放頁面」</b>，享受音樂與燈光秀。</li>
+      </ol>
     </div>
   </div>
 
-  <div style="margin-top: 30px; text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 20px;">
-    <h3 style="color: #fff; margin-top: 0;">📖 使用說明</h3>
-    <ol style="padding-left: 20px; margin: 0;">
-      <li><b>登入 LINE</b> 後點擊按鈕。</li>
-      <li>系統會自動為您分配一個<b>專屬房間</b>。</li>
-      <li>將<b>「點歌頁面」</b>連結分享給朋友，讓大家用手機點歌。</li>
-      <li>在電視或大螢幕上開啟<b>「播放頁面」</b>，享受音樂與燈光秀。</li>
-    </ol>
-  </div>
-</div>
+  <script>
+    window.APP_CONFIG = {};
+    let userProfile = null;
 
-<script>
-const LIFF_ID = '2008832076-eA3l2ogi';
-let userProfile = null;
+    function initLiff() {
+      const btn = document.getElementById('btnLogin');
+      if (btn) btn.innerText = "載入中...";
 
-function initLiff() {
-  const btn = document.getElementById('btnLogin');
-  if(btn) btn.innerText = "載入中...";
+      liff.init({ liffId: window.APP_CONFIG.LIFF_ID }).then(() => {
+        if (liff.isLoggedIn()) {
+          liff.getProfile().then(profile => {
+            userProfile = profile;
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('createSection').style.display = 'block';
+          });
+        } else {
+          document.getElementById('loginSection').style.display = 'block';
 
-  liff.init({ liffId: LIFF_ID }).then(() => {
-    if (liff.isLoggedIn()) {
-      liff.getProfile().then(profile => {
-        userProfile = profile;
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('createSection').style.display = 'block';
+          if (btn) btn.innerText = "LINE 登入";
+        }
+      }).catch(err => {
+        console.error('LIFF Init Error', err);
+        alert('LINE 登入初始化失敗');
+        if (btn) btn.innerText = "LINE 登入 (重試)";
       });
-    } else {
-      document.getElementById('loginSection').style.display = 'block';
-      
-      if(btn) btn.innerText = "LINE 登入";
     }
-  }).catch(err => {
-    console.error('LIFF Init Error', err);
-    alert('LINE 登入初始化失敗');
-    if(btn) btn.innerText = "LINE 登入 (重試)";
-  });
-}
 
-function loginLine() {
-  // 清除 URL 中的 LINE Login 參數，避免重複帶入導致錯誤
-  const url = new URL(window.location.href);
-  url.searchParams.delete('code');
-  url.searchParams.delete('state');
-  url.searchParams.delete('liffClientId');
-  url.searchParams.delete('liffRedirectUri');
-  
-  liff.login({ redirectUri: url.toString() });
-}
+    function loginLine() {
+      // 清除 URL 中的 LINE Login 參數，避免重複帶入導致錯誤
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      url.searchParams.delete('state');
+      url.searchParams.delete('liffClientId');
+      url.searchParams.delete('liffRedirectUri');
 
-function createRoom() {
-  const baseUrl = window.location.origin;
-
-  if (!userProfile || !userProfile.userId) {
-    alert("請先登入 LINE");
-    return;
-  }
-
-  fetch('/api/room/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adminLineId: userProfile.userId }) // 不傳 room，讓後端自動分配
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.ok) {
-      const room = data.room;
-      // 儲存 ID 到 sessionStorage 方便後台直接識別
-      sessionStorage.setItem('line_user_id', userProfile.userId);
-
-      document.getElementById('roomNameDisplay').innerText = room;
-      
-      const guestUrl = `${baseUrl}/?room=${encodeURIComponent(room)}`;
-      const displayUrl = `${baseUrl}/display.html?room=${encodeURIComponent(room)}`;
-      const adminUrl = `${baseUrl}/admin.html?room=${encodeURIComponent(room)}`;
-
-      document.getElementById('guestLink').href = guestUrl;
-      document.getElementById('guestLink').innerText = guestUrl;
-      document.getElementById('displayLink').href = displayUrl;
-      document.getElementById('displayLink').innerText = displayUrl;
-      document.getElementById('adminLink').href = adminUrl;
-      document.getElementById('adminLink').innerText = adminUrl;
-
-      document.getElementById('resultArea').style.display = 'block';
-    } else {
-      alert(data.error || "建立失敗");
+      liff.login({ redirectUri: url.toString() });
     }
-  });
-}
 
-function copyLink(id) {
-  const url = document.getElementById(id).href;
-  navigator.clipboard.writeText(url).then(() => alert('已複製連結！'));
-}
+    function createRoom() {
+      const baseUrl = window.location.origin;
 
-initLiff();
-</script>
+      if (!userProfile || !userProfile.userId) {
+        alert("請先登入 LINE");
+        return;
+      }
+
+      fetch('/api/room/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminLineId: userProfile.userId }) // 不傳 room，讓後端自動分配
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            const room = data.room;
+            // 儲存 ID 到 sessionStorage 方便後台直接識別
+            sessionStorage.setItem('line_user_id', userProfile.userId);
+
+            document.getElementById('roomNameDisplay').innerText = room;
+
+            const guestUrl = `${baseUrl}/?room=${encodeURIComponent(room)}`;
+            const displayUrl = `${baseUrl}/display.html?room=${encodeURIComponent(room)}`;
+            const adminUrl = `${baseUrl}/admin.html?room=${encodeURIComponent(room)}`;
+
+            document.getElementById('guestLink').href = guestUrl;
+            document.getElementById('guestLink').innerText = guestUrl;
+            document.getElementById('displayLink').href = displayUrl;
+            document.getElementById('displayLink').innerText = displayUrl;
+            document.getElementById('adminLink').href = adminUrl;
+            document.getElementById('adminLink').innerText = adminUrl;
+
+            document.getElementById('resultArea').style.display = 'block';
+          } else {
+            alert(data.error || "建立失敗");
+          }
+        });
+    }
+
+    function copyLink(id) {
+      const url = document.getElementById(id).href;
+      navigator.clipboard.writeText(url).then(() => alert('已複製連結！'));
+    }
+
+    async function initializeConfig() {
+      try {
+        const res = await fetch('/api/config');
+        window.APP_CONFIG = await res.json();
+        initLiff();
+      } catch (err) {
+        console.error('Failed to load config', err);
+        alert('無法取得系統設定，請重新整理頁面。');
+      }
+    }
+
+    initializeConfig();
+  </script>
 
 </body>
+
 </html>

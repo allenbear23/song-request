@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // node-fetch@2
+require('dotenv').config();
 
 // --- Redis 設定 (用於資料持久化) ---
 let redis;
@@ -42,6 +43,14 @@ const DEFAULT_SETTINGS = {
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 公開設定 API：供前端拿取 UI 必須的 KEY (例如 LIFF ID, reCAPTCHA site key)
+app.get('/api/config', (req, res) => {
+  res.json({
+    RECAPTCHA_SITE_KEY: process.env.RECAPTCHA_SITE_KEY || '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs',
+    LIFF_ID: process.env.LIFF_ID || '2008832076-eA3l2ogi'
+  });
+});
 
 // 取得房間 ID (預設為 'default')
 function getRoom(req) {

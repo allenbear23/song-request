@@ -25,8 +25,8 @@ if (REDIS_URL) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---------- 請把你的 API key 填在這裡 ----------
-const YT_API_KEY = process.env.YT_API_KEY || "AIzaSyC665Opql5KG7wx87YOYQ3OlH9hx5JqGZ0";
+// ---------- 請把你的 API key 填入 .env 檔案 ----------
+const YT_API_KEY = process.env.YT_API_KEY;
 // ------------------------------------------------
 
 const USERS_FILE = 'users.json'; // 使用者統計資料檔
@@ -47,8 +47,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 公開設定 API：供前端拿取 UI 必須的 KEY (例如 LIFF ID, reCAPTCHA site key)
 app.get('/api/config', (req, res) => {
   res.json({
-    RECAPTCHA_SITE_KEY: process.env.RECAPTCHA_SITE_KEY || '6LdTREMsAAAAAN0_SPJmQ6m_fC-RKipEKoZyXdTs',
-    LIFF_ID: process.env.LIFF_ID || '2008832076-eA3l2ogi'
+    RECAPTCHA_SITE_KEY: process.env.RECAPTCHA_SITE_KEY,
+    LIFF_ID: process.env.LIFF_ID
   });
 });
 
@@ -289,7 +289,7 @@ app.get('/search', async (req, res) => {
 });
 
 // Request (add to queue) — accepts either full URL or videoId via url param
-const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || '6LdTREMsAAAAAHaezhLTPt4ldYTyFj-rulrmYRIk';
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
 
 app.post('/request', async (req, res) => {
   try {

@@ -912,10 +912,13 @@
             updateLoginUI();
           });
         } else {
-          updateLoginUI();
+          // 未登入 -> 直接自動跳轉 LINE 登入，不需手動按按鈕
+          handleLineLogin();
         }
       }).catch(err => {
         console.error('LIFF 初始化失敗 (請檢查 LIFF ID)', err);
+        // 初始化失敗時才顯示手動按鈕（讓使用者可以重試）
+        updateLoginUI();
         showToast('初始化失敗', '請檢查網路連線或重新整理頁面。', 'error');
       });
     }

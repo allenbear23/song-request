@@ -981,42 +981,12 @@
         const res = await fetch('/api/config');
         window.APP_CONFIG = await res.json();
 
-        // --- 快速跳轉優化 ---
-        // 如果是外部瀏覽器（非 LIFF 內建），且使用者尚未登入，
-        // 直接跳轉到 liff.line.me，不需要等 liff.init() 完成。
-        const params = new URLSearchParams(window.location.search);
-        const isBypass = params.get('bypassLogin') === '1';
-        const alreadyLoggedIn = !!sessionStorage.getItem('line_user_id');
-        const hasLiffId = !!window.APP_CONFIG.LIFF_ID;
-
-        // 使用 sessionStorage flag 防止無窮迴圈：
-        // 如果上次已嘗試快速跳轉，返回後清除 flag 並走正常 liff.init() 流程
-        const redirectPending = sessionStorage.getItem('liff_redirect_pending') === '1';
-        if (redirectPending) {
-          sessionStorage.removeItem('liff_redirect_pending');
-        }
-
-        const isInsideLiff = window.liff && typeof liff.isInClient === 'function' && liff.isInClient();
-
-        if (currentRoom && !isBypass && !alreadyLoggedIn && !isInsideLiff && !redirectPending && hasLiffId) {
-          // 外部瀏覽器且首次嘗試 → 設定 flag，立刻跳轉，跳過 liff.init()
-          sessionStorage.setItem('liff_redirect_pending', '1');
-          const url = new URL(window.location.href);
-          url.searchParams.delete('code');
-          url.searchParams.delete('state');
-          url.searchParams.delete('liffClientId');
-          url.searchParams.delete('liffRedirectUri');
-          url.searchParams.delete('from_liff');
-          window.location.replace(`https://liff.line.me/${window.APP_CONFIG.LIFF_ID}${url.search}`);
-          return;
-        }
-
         // 動態載入 reCAPTCHA script
         const script = document.createElement('script');
         script.src = `https://www.google.com/recaptcha/api.js?render=${window.APP_CONFIG.RECAPTCHA_SITE_KEY}`;
         document.head.appendChild(script);
 
-        // 初始化 LIFF（已登入後回到頁面、或 bypass 模式）
+        // 初始化 LIFF（會自動處理 OAuth 回調 + 自動登入）
         initLiff();
       } catch (err) {
         console.error('Failed to load config', err);

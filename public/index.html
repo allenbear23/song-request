@@ -139,8 +139,8 @@
       font-weight: bold;
       color: #fff;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
+      -webkit-line-clamp: 1;
+      line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -169,8 +169,12 @@
     }
 
     .btn-withdraw:hover {
-      background: rgba(255, 68, 68, 0.2);
+      background: rgba(255, 68, 68, 0.15);
       color: #ff4444;
+      /* Override global button:hover */
+      transform: none !important;
+      box-shadow: none !important;
+      filter: none !important;
     }
 
     /* Simple spinning animation for the loading state */

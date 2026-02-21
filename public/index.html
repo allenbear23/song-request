@@ -103,10 +103,52 @@
       font-weight: 600;
     }
 
+    #queueList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
     #queueList li {
+      display: flex;
+      background: #121212;
+      padding: 10px;
       margin-top: 8px;
-      color: #fff;
+      border-radius: 8px;
+      align-items: flex-start;
+    }
+
+    #queueList li img {
+      width: 100px;
+      height: 56px;
+      object-fit: cover;
+      margin-right: 12px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .queue-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .queue-title {
       font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .queue-channel {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
     }
 
     hr {

@@ -207,10 +207,19 @@ function updateQueue() {
 
       list.forEach((it, idx) => {
         const li = document.createElement('li');
+
+        let thumbHtml = '';
+        if (it.thumbnail) {
+          thumbHtml = `<img src="${it.thumbnail}" alt="thumbnail">`;
+        }
+
         li.innerHTML = `
-          ${idx + 1}. ${it.title}
-          <span style="color:#888; font-size:12px"> - ${it.channel || ''}</span>
-          `;
+          ${thumbHtml}
+          <div class="queue-info">
+            <div class="queue-title">${idx + 1}. ${it.title}</div>
+            <div class="queue-channel">${it.channel || ''}</div>
+          </div>
+        `;
         ul.appendChild(li);
       });
     })

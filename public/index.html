@@ -987,13 +987,20 @@
         const params = new URLSearchParams(window.location.search);
         const isBypass = params.get('bypassLogin') === '1';
         const alreadyLoggedIn = !!sessionStorage.getItem('line_user_id');
-        const isInsideLiff = window.liff && typeof liff.isInClient === 'function' && liff.isInClient();
         const hasLiffId = !!window.APP_CONFIG.LIFF_ID;
-        // 如果 URL 帶有 LINE 授權回調參數，代表正在從 LINE 返回，不能再次跳轉（否則無窮迴圈）
-        const isReturningFromLine = params.has('code') || params.has('state') || params.has('liffClientId') || params.has('from_liff');
 
-        if (currentRoom && !isBypass && !alreadyLoggedIn && !isInsideLiff && !isReturningFromLine && hasLiffId) {
-          // 外部瀏覽器且未登入 → 立刻跳轉，跳過 liff.init()
+        // 使用 sessionStorage flag 防止無窮迴圈：
+        // 如果上次已嘗試快速跳轉，返回後清除 flag 並走正常 liff.init() 流程
+        const redirectPending = sessionStorage.getItem('liff_redirect_pending') === '1';
+        if (redirectPending) {
+          sessionStorage.removeItem('liff_redirect_pending');
+        }
+
+        const isInsideLiff = window.liff && typeof liff.isInClient === 'function' && liff.isInClient();
+
+        if (currentRoom && !isBypass && !alreadyLoggedIn && !isInsideLiff && !redirectPending && hasLiffId) {
+          // 外部瀏覽器且首次嘗試 → 設定 flag，立刻跳轉，跳過 liff.init()
+          sessionStorage.setItem('liff_redirect_pending', '1');
           const url = new URL(window.location.href);
           url.searchParams.delete('code');
           url.searchParams.delete('state');

@@ -8,7 +8,7 @@ function showToast(title, msg, type = 'info') {
 
   const box = document.createElement("div");
   box.id = "toastBox";
-  
+
   let bg = "rgba(0,0,0,0.85)";
   let icon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
   if (type === 'error') { bg = "rgba(220, 53, 69, 0.95)"; icon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`; }
@@ -63,7 +63,12 @@ function searchYT() {
   box.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>搜尋中…';
   if (btn) btn.classList.add('btn-loading');
 
-  fetch('/search?q=' + encodeURIComponent(q))
+  let fetchUrl = '/search?q=' + encodeURIComponent(q);
+  if (new URLSearchParams(window.location.search).get('bypassLogin') === '1') {
+    fetchUrl += '&bypassLogin=1';
+  }
+
+  fetch(fetchUrl)
     .then(r => r.json())
     .then(list => {
       box.innerHTML = '';
@@ -74,23 +79,44 @@ function searchYT() {
       }
 
       list.forEach(it => {
-        const div = document.createElement('div');
-        div.className = 'search-result';
-        div.onclick = () => sendRequestByVideoId(it.videoId);
+        try {
+          const div = document.createElement('div');
+          div.className = 'search-result';
+          div.onclick = () => sendRequestByVideoId(it.videoId);
 
-        div.innerHTML = `
-          <img src="${it.thumbnail}" alt="">
-          <div>
-            <div class="title">${it.title}</div>
-            <div class="channel">${it.channel}</div>
-          </div>
-        `;
-        box.appendChild(div);
+          // 格式化觀看次數
+          let viewsText = '';
+          if (it.viewCount) {
+            const views = parseInt(it.viewCount, 10);
+            if (views >= 100000000) viewsText = (views / 100000000).toFixed(1) + '億次觀看';
+            else if (views >= 10000) viewsText = (views / 10000).toFixed(1) + '萬次觀看';
+            else viewsText = views.toLocaleString() + '次觀看';
+          }
+
+          // 格式化發布時間
+          let dateText = '';
+          if (it.publishedAt) {
+            const date = new Date(it.publishedAt);
+            dateText = `・${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+          }
+
+          div.innerHTML = `
+            <img src="${it.thumbnail}" alt="">
+            <div>
+              <div class="title">${it.title}</div>
+              <div class="channel">${it.channel}</div>
+              <div style="font-size:11px; color:#888; margin-top:4px;">${viewsText} ${dateText}</div>
+            </div>
+          `;
+          box.appendChild(div);
+        } catch (renderError) {
+          box.innerHTML += `<div style="color:red">渲染錯誤: ${renderError.message}</div>`;
+        }
       });
     })
     .catch(err => {
       console.error('search error', err);
-      box.innerHTML = '<div class="small">搜尋錯誤，請稍後再試</div>';
+      box.innerHTML = `<div class="small" style="color:red">搜尋發生錯誤：${err.message}</div>`;
     })
     .finally(() => {
       if (btn) btn.classList.remove('btn-loading');
@@ -116,14 +142,14 @@ function sendRequestFromInput() {
 // --- 點歌 API ---
 function sendRequest(url, btnElement = null) {
   // 觸發 reCAPTCHA v3
-  grecaptcha.ready(function() {
-    grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'request'}).then(function(token) {
+  grecaptcha.ready(function () {
+    grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'request' }).then(function (token) {
       window.executeSendRequest(url, token, btnElement);
     });
   });
 }
 
-window.executeSendRequest = function(url, token, btnElement = null) {
+window.executeSendRequest = function (url, token, btnElement = null) {
   showToast("傳送中…", "請稍候");
 
   // 準備使用者資料 (若已登入)
@@ -184,7 +210,7 @@ function updateQueue() {
         li.innerHTML = `
           ${idx + 1}. ${it.title}
           <span style="color:#888; font-size:12px"> - ${it.channel || ''}</span>
-        `;
+          `;
         ul.appendChild(li);
       });
     })

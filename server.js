@@ -216,19 +216,62 @@ app.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
 
+  // 本地測試 Bypass 機制 (為了無 API Key 時能測試 UI)
+  if (req.query.bypassLogin === '1') {
+    return res.json([
+      {
+        videoId: "MVD7fhKgGzc",
+        title: "周杰倫最好聽的20首歌曲 | 在雨天聽周杰倫－絕佳的選擇 | Listening to Jay Chou on a rainy day - An excellent choice",
+        channel: "杰威爾歌詞MV頻道JVR Lyric MV",
+        thumbnail: "https://i.ytimg.com/vi/MVD7fhKgGzc/hqdefault.jpg",
+        viewCount: "35400000",
+        publishedAt: "2018-05-15T00:00:00Z"
+      },
+      {
+        videoId: "dQw4w9WgXcQ",
+        title: "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+        channel: "Rick Astley",
+        thumbnail: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        viewCount: "1350000000",
+        publishedAt: "2009-10-25T00:00:00Z"
+      },
+      {
+        videoId: "HmFhhfF68OU",
+        title: "劉大壯 - 最【動態歌詞】「最最最 難忘回憶是與你 最最最 最後一吻的距離」♪",
+        channel: "Angelic Music World",
+        thumbnail: "https://i.ytimg.com/vi/HmFhhfF68OU/hqdefault.jpg",
+        viewCount: "8500",
+        publishedAt: "2023-11-20T00:00:00Z"
+      }
+    ]);
+  }
+
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`;
-    const r = await fetch(url);
-    const data = await r.json();
+    // 1. 先用 search API 取得影片清單
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`;
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
 
-    if (!data.items) return res.json([]);
+    if (!searchData.items || searchData.items.length === 0) return res.json([]);
 
-    const results = data.items.map(it => ({
-      videoId: it.id.videoId,
+    // 2. 收集所有 videoId，再呼叫 videos API 取得統計資料 (包含觀看次數 snippet 包含發布時間)
+    const videoIds = searchData.items.map(it => it.id.videoId).join(',');
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}&key=${YT_API_KEY}`;
+    const videosRes = await fetch(videosUrl);
+    const videosData = await videosRes.json();
+
+    if (!videosData.items) return res.json([]);
+
+    // 3. 將資料組合起來
+    const results = videosData.items.map(it => ({
+      videoId: it.id,
       title: it.snippet.title,
       channel: it.snippet.channelTitle,
-      thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url
+      thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
+      viewCount: it.statistics.viewCount,
+      publishedAt: it.snippet.publishedAt
     }));
+
     res.json(results);
   } catch (e) {
     console.error('search error:', e);

@@ -460,19 +460,10 @@
         <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
         <path d="M18 2H6v7c0 3.31 2.69 6 6 6s6-2.69 6-6V2z"></path>
       </symbol>
-      <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      <symbol id="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
-        <path
-          d="M4.53 10.97c-.77.16-1.55.51-2.29 1.05-1.07.78-1.74 1.83-2.13 2.87-.26.69-.15 1.48.27 2.05l.02.02c.42.57 1.15.82 1.85.64s1.29-.53 1.93-.9c1.07-.63 2.1-1.37 3.1-2.15">
-        </path>
-        <path
-          d="M16 2.36c.6.38 1.16.8 1.68 1.27 1.34 1.25 2.54 2.8 3.51 4.5.34.6.61 1.24.78 1.91.13.52-.05 1.05-.46 1.37l-.02.01c-.41.32-.96.38-1.44.17s-.86-.53-1.28-.8c-.85-.56-1.68-1.15-2.48-1.79">
-        </path>
-        <path d="M21 21s-2.07-2.02-3.8-3.79"></path>
-        <path d="M14.07 10.15c.16.63.49 1.18.96 1.62.46.43 1 .73 1.62.87"></path>
-        <path
-          d="M8.2 8.78c.44-.75 2.15-2.51 4.22-3.64 2.89-1.57 6.47-1.75 8.16-.06s1.39 5.39.06 8.3c-1.12 2.45-2.8 4.2-3.55 4.64L8.2 8.78z">
-        </path>
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
       </symbol>
       <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
@@ -710,8 +701,8 @@
     <div class="input-wrapper">
       <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）" onkeydown="if(event.key==='Enter') sendRequestFromInput()">
       <button onclick="sendRequestFromInput()" class="inner-icon-btn" title="貼上加入佇列">
-        <svg width="20" height="20" class="icon">
-          <use href="#icon-rocket"></use>
+        <svg width="20" height="20" class="icon" style="transform: translateX(-1px);">
+          <use href="#icon-send"></use>
         </svg>
       </button>
     </div>

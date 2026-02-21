@@ -54,7 +54,7 @@ const protect = (req, res, next) => next();
 // --- 通用資料讀寫 (支援 MongoDB 與 檔案) ---
 async function readData(key, room, defaultVal) {
   const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
-  
+
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
     try {
@@ -88,7 +88,7 @@ async function readData(key, room, defaultVal) {
 
 async function writeData(key, room, data) {
   const redisKey = key === 'admin_rooms' ? 'global:admin_rooms' : `room:${room}:${key}`;
-  
+
   // 優先嘗試 Redis
   if (redis && redis.status === 'ready') {
     try {
@@ -180,14 +180,14 @@ app.post('/api/room/create', async (req, res) => {
 
   const adminRooms = await readData('admin_rooms', 'global', {});
   let assignedRoom = adminRooms[adminLineId];
-  
+
   if (!assignedRoom) {
     assignedRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
     adminRooms[adminLineId] = assignedRoom;
     await writeData('admin_rooms', 'global', adminRooms);
     await saveSettings(assignedRoom, { adminLineId });
   }
-  
+
   return res.json({ ok: true, room: assignedRoom, message: "進入您的專屬房間" });
 });
 
@@ -197,7 +197,7 @@ app.get('/api/room/login', async (req, res) => {
   const clientLineId = req.headers['x-line-user-id'];
 
   const settings = await getSettings(room);
-  
+
   // 如果房間有設定管理員 LINE ID
   if (settings.adminLineId) {
     if (settings.adminLineId === clientLineId) {
@@ -206,7 +206,7 @@ app.get('/api/room/login', async (req, res) => {
       return res.status(401).json({ error: "權限不足 (非此房間管理員)" });
     }
   }
-  
+
   // 如果沒設定管理員 (舊房間或開放房間)，允許
   res.json({ ok: true });
 });
@@ -248,7 +248,7 @@ app.post('/request', async (req, res) => {
     if (!token) {
       return res.status(400).json({ error: 'reCAPTCHA token missing' });
     }
-    
+
     // 檢查使用者是否被停權
     if (user && user.userId) {
       const users = await readUsers(room);
@@ -267,8 +267,11 @@ app.post('/request', async (req, res) => {
     const verifyRes = await fetch(verifyUrl, { method: 'POST', body: params });
     const verifyJson = await verifyRes.json();
 
+    // 檢查是否為本地測試員 (Bypass Login)
+    const isLocalTest = user && user.displayName === '本地測試員';
+
     // verifyJson 範例: { success: true, score: 0.9, action: "submit", ... }
-    if (!verifyJson.success || (verifyJson.score !== undefined && verifyJson.score < 0.5)) {
+    if (!isLocalTest && (!verifyJson.success || (verifyJson.score !== undefined && verifyJson.score < 0.5))) {
       console.warn('reCAPTCHA failed', verifyJson);
       return res.status(400).json({ error: 'reCAPTCHA 驗證失敗 (分數過低)，請再試一次' });
     }
@@ -313,22 +316,22 @@ app.post('/request', async (req, res) => {
     await writeSongs(room, songs);
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
-    
+
     // --- 記錄使用者點歌次數 ---
     if (user && user.userId) {
       const users = await readUsers(room);
       if (!users[user.userId]) users[user.userId] = { count: 0 };
-      
+
       users[user.userId].name = user.displayName; // 更新最新暱稱
       users[user.userId].picture = user.pictureUrl; // 更新最新頭貼
       users[user.userId].count = (users[user.userId].count || 0) + 1;
       await writeUsers(room, users);
     }
-    
-    queue.push({ 
-      url: fullUrl, 
-      title: info.title, 
-      channel: info.channel, 
+
+    queue.push({
+      url: fullUrl,
+      title: info.title,
+      channel: info.channel,
       thumbnail: info.thumbnail,
       requester: user ? { id: user.userId, name: user.displayName } : null
     });
@@ -371,7 +374,7 @@ async function autoAddSong(room, q) {
       votes: 0,
       votedIds: []
     };
-    
+
     q.push(newItem);
     await writeQueue(room, q);
     console.log('Auto-queued:', s.title);
@@ -428,7 +431,7 @@ app.post('/vote-skip', async (req, res) => {
   await checkVoteExpiry(room, q);
 
   const item = q[0];
-  
+
   // 初始化欄位
   if (!item.votedIds) item.votedIds = [];
   if (!item.votes) item.votes = 0;
@@ -557,7 +560,7 @@ app.post('/playlist/load', async (req, res) => {
     const room = getRoom(req);
     const playlist = await readData('playlist', room, []);
     if (!playlist || playlist.length === 0) return res.json({ ok: false });
-    
+
     await writeQueue(room, playlist);
     res.json({ ok: true });
   } catch (err) {
@@ -579,10 +582,10 @@ app.post('/playlist/clear', async (req, res) => {
 app.get('/settings', async (req, res) => {
   const room = getRoom(req);
   const settings = await getSettings(room);
-  res.json({ 
-    threshold: settings.threshold, 
-    timeout: settings.timeout, 
-    banDuration: settings.banDuration / 60000, 
+  res.json({
+    threshold: settings.threshold,
+    timeout: settings.timeout,
+    banDuration: settings.banDuration / 60000,
     autoQueue: settings.autoQueue,
     volume: settings.volume !== undefined ? settings.volume : 100
   });
@@ -661,7 +664,7 @@ app.post('/admin/skip', protect, async (req, res) => {
   const { reason, image } = req.body;
   const q = await readQueue(room);
   const settings = await getSettings(room);
-  
+
   // 執行切歌邏輯
   let skippedItem = null;
   if (q.length > 0) {
@@ -697,7 +700,7 @@ app.get('/admin/banned-users', protect, async (req, res) => {
   const users = await readUsers(room);
   const now = Date.now();
   const list = [];
-  
+
   Object.keys(users).forEach(userId => {
     const u = users[userId];
     if (u.bannedUntil && u.bannedUntil > now) {
@@ -709,7 +712,7 @@ app.get('/admin/banned-users', protect, async (req, res) => {
       });
     }
   });
-  
+
   res.json(list);
 });
 
@@ -718,7 +721,7 @@ app.post('/admin/unban', protect, async (req, res) => {
   const room = getRoom(req);
   const { userId } = req.body;
   const users = await readUsers(room);
-  
+
   if (users[userId]) {
     delete users[userId].bannedUntil;
     await writeUsers(room, users);
@@ -739,7 +742,7 @@ app.post('/admin/banned-words/add', protect, async (req, res) => {
   const room = getRoom(req);
   const { word } = req.body;
   if (!word || !word.trim()) return res.status(400).json({ error: "請輸入違禁詞" });
-  
+
   const words = await readBannedWords(room);
   if (!words.includes(word)) {
     words.push(word);
@@ -783,7 +786,7 @@ app.post('/danmaku', async (req, res) => {
   const room = getRoom(req);
   const { text, color, size, mode, quantity } = req.body;
   if (!text) return res.status(400).json({ error: "Empty text" });
-  
+
   // 限制數量在 1 ~ 20 之間
   const count = Math.max(1, Math.min(parseInt(quantity) || 1, 20));
 
@@ -798,12 +801,12 @@ app.post('/danmaku', async (req, res) => {
     if (!danmakuLists[room]) danmakuLists[room] = [];
     danmakuLists[room].push(msg);
   }
-  
+
   // 保留最近 100 則，避免記憶體膨脹
   if (danmakuLists[room].length > 100) {
     danmakuLists[room] = danmakuLists[room].slice(-100);
   }
-  
+
   res.json({ ok: true });
 });
 
@@ -827,14 +830,18 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, db: dbStatus });
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// --- 防止 Render 休眠 (Self-Ping) ---
-// 請在 Render 後台設定環境變數 RENDER_EXTERNAL_URL = 你的網站網址 (例如 https://xxx.onrender.com)
-if (process.env.RENDER_EXTERNAL_URL) {
-  setInterval(() => {
-    fetch(`${process.env.RENDER_EXTERNAL_URL}/health`)
-      .then(() => console.log('Keep-alive ping success'))
-      .catch(e => console.error('Keep-alive ping failed', e));
-  }, 14 * 60 * 1000); // 每 14 分鐘發送一次請求
+  // --- 防止 Render 休眠 (Self-Ping) ---
+  // 請在 Render 後台設定環境變數 RENDER_EXTERNAL_URL = 你的網站網址 (例如 https://xxx.onrender.com)
+  if (process.env.RENDER_EXTERNAL_URL) {
+    setInterval(() => {
+      fetch(`${process.env.RENDER_EXTERNAL_URL}/health`)
+        .then(() => console.log('Keep-alive ping success'))
+        .catch(e => console.error('Keep-alive ping failed', e));
+    }, 14 * 60 * 1000); // 每 14 分鐘發送一次請求
+  }
 }
+
+module.exports = app;

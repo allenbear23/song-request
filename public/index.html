@@ -984,12 +984,15 @@
         // --- 快速跳轉優化 ---
         // 如果是外部瀏覽器（非 LIFF 內建），且使用者尚未登入，
         // 直接跳轉到 liff.line.me，不需要等 liff.init() 完成。
-        const isBypass = new URLSearchParams(window.location.search).get('bypassLogin') === '1';
+        const params = new URLSearchParams(window.location.search);
+        const isBypass = params.get('bypassLogin') === '1';
         const alreadyLoggedIn = !!sessionStorage.getItem('line_user_id');
         const isInsideLiff = window.liff && typeof liff.isInClient === 'function' && liff.isInClient();
         const hasLiffId = !!window.APP_CONFIG.LIFF_ID;
+        // 如果 URL 帶有 LINE 授權回調參數，代表正在從 LINE 返回，不能再次跳轉（否則無窮迴圈）
+        const isReturningFromLine = params.has('code') || params.has('state') || params.has('liffClientId') || params.has('from_liff');
 
-        if (currentRoom && !isBypass && !alreadyLoggedIn && !isInsideLiff && hasLiffId) {
+        if (currentRoom && !isBypass && !alreadyLoggedIn && !isInsideLiff && !isReturningFromLine && hasLiffId) {
           // 外部瀏覽器且未登入 → 立刻跳轉，跳過 liff.init()
           const url = new URL(window.location.href);
           url.searchParams.delete('code');

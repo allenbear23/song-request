@@ -314,6 +314,36 @@
       transform: translateY(-2px);
     }
 
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .input-wrapper input {
+      padding-right: 50px;
+    }
+
+    .inner-icon-btn {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .inner-icon-btn .icon {
+      margin: 0 !important;
+    }
+
     .playing-bar {
       width: 3px;
       background: #00ffcc;
@@ -665,16 +695,27 @@
     </h1>
 
     <!-- 搜尋 -->
-    <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…">
-    <button onclick="searchYT()">搜尋</button>
+    <div class="input-wrapper">
+      <input id="searchInput" placeholder="搜尋 YouTube 歌名或歌手…" onkeydown="if(event.key==='Enter') searchYT()">
+      <button onclick="searchYT()" class="inner-icon-btn" title="搜尋">
+        <svg width="20" height="20" class="icon">
+          <use href="#icon-search"></use>
+        </svg>
+      </button>
+    </div>
     <div id="searchList"></div>
-
 
     <hr>
 
     <!-- 貼連結 -->
-    <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）">
-    <button onclick="sendRequestFromInput()">貼上加入佇列</button>
+    <div class="input-wrapper">
+      <input id="urlInput" placeholder="或貼上 YouTube 連結（可選）" onkeydown="if(event.key==='Enter') sendRequestFromInput()">
+      <button onclick="sendRequestFromInput()" class="inner-icon-btn" title="貼上加入佇列">
+        <svg width="20" height="20" class="icon">
+          <use href="#icon-rocket"></use>
+        </svg>
+      </button>
+    </div>
     <div id="msg"></div>
 
     <hr>

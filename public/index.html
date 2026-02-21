@@ -941,9 +941,14 @@
           url.searchParams.delete('liffRedirectUri');
           url.searchParams.delete('from_liff');
 
-          // 外部瀏覽器：一律使用 LIFF URL (Universal Link / App Link) 跳轉
-          // 這樣 OS 會直接喚醒 LINE App，避免出現 access.line.me 的網頁版輸入帳密畫面
-          window.location.href = `https://liff.line.me/${window.APP_CONFIG.LIFF_ID}${url.search}`;
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isAndroid) {
+            // Android: 強制使用 LIFF URL 嘗試喚起 App (解決 Chrome 阻擋問題)
+            window.location.href = `https://liff.line.me/${window.APP_CONFIG.LIFF_ID}${url.search}`;
+          } else {
+            // iOS / 電腦: 使用 SDK 標準登入 (iOS 較新版本對 Universal Link 支援變更，SDK 處理較穩)
+            liff.login({ redirectUri: url.toString() });
+          }
         }
       } catch (err) {
         showToast('登入錯誤', err.message || err, 'error');

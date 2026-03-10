@@ -247,6 +247,13 @@
       <button onclick="saveAutoQueue()">儲存設定</button>
     </div>
 
+    <label>朗讀彈幕</label>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input type="checkbox" id="readAloudInput" style="width:20px; height:20px; margin:0;">
+      <span style="font-size:14px; color:#ccc;">啟用 (自動朗讀收到的彈幕訊息)</span>
+      <button onclick="saveReadAloud()">儲存設定</button>
+    </div>
+
     <div id="msg" class="msg"></div>
   </div>
 
@@ -415,6 +422,7 @@
           document.getElementById('thresholdInput').value = data.threshold;
           if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
           if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
+          if (data.readAloud !== undefined) document.getElementById('readAloudInput').checked = data.readAloud;
           if (data.volume !== undefined) {
             document.getElementById('volumeInput').value = data.volume;
             document.getElementById('volumeLabel').innerText = data.volume + '%';
@@ -471,6 +479,21 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) document.getElementById('msg').innerHTML = "<svg class='icon icon-sm'><use href='#icon-check'></use></svg> 自動推薦已" + (data.autoQueue ? "啟用" : "關閉");
+          else alert(data.error);
+        })
+        .catch(err => alert("儲存失敗"));
+    }
+
+    function saveReadAloud() {
+      const enabled = document.getElementById('readAloudInput').checked;
+      fetch('/admin/read-aloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) document.getElementById('msg').innerHTML = "<svg class='icon icon-sm'><use href='#icon-check'></use></svg> 朗讀彈幕已" + (data.readAloud ? "啟用" : "關閉");
           else alert(data.error);
         })
         .catch(err => alert("儲存失敗"));

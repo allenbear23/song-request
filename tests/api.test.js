@@ -17,6 +17,18 @@ describe('Song Request API', () => {
         expect(res.body).toHaveProperty('banDuration');
         expect(res.body).toHaveProperty('autoQueue');
         expect(res.body).toHaveProperty('volume');
+        expect(res.body).toHaveProperty('readAloud');
+    });
+
+    it('POST /admin/read-aloud should update readAloud setting', async () => {
+        const res = await request(app)
+            .post('/admin/read-aloud')
+            .send({ enabled: true });
+        expect(res.statusCode).toEqual(200);
+        expect(res.body).toHaveProperty('readAloud', true);
+
+        const settingsRes = await request(app).get('/settings');
+        expect(settingsRes.body.readAloud).toBe(true);
     });
 
     it('GET /queue should return an array', async () => {

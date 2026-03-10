@@ -956,14 +956,10 @@
       container.appendChild(el);
 
       // --- 朗讀彈幕 ---
-      if (isReadAloudEnabled && window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(msg.text);
-        // 嘗試尋找中文語音
-        const voices = window.speechSynthesis.getVoices();
-        const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('TW') || v.lang.includes('CN'));
-        if (zhVoice) utterance.voice = zhVoice;
-        utterance.rate = 1.0;
-        window.speechSynthesis.speak(utterance);
+      if (isReadAloudEnabled) {
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(msg.text)}&tl=zh-TW&client=tw-ob`;
+        const audio = new Audio(ttsUrl);
+        audio.play().catch(e => console.error("TTS 播放失敗:", e));
       }
 
       // 動畫結束後移除

@@ -18,6 +18,7 @@ describe('Song Request API', () => {
         expect(res.body).toHaveProperty('autoQueue');
         expect(res.body).toHaveProperty('volume');
         expect(res.body).toHaveProperty('readAloud');
+        expect(res.body).toHaveProperty('strictMusicOnly');
     });
 
     it('POST /admin/read-aloud should update readAloud setting', async () => {
@@ -29,6 +30,17 @@ describe('Song Request API', () => {
 
         const settingsRes = await request(app).get('/settings');
         expect(settingsRes.body.readAloud).toBe(true);
+    });
+
+    it('POST /admin/strict-music should update strictMusicOnly setting', async () => {
+        const res = await request(app)
+            .post('/admin/strict-music')
+            .send({ enabled: true });
+        expect(res.statusCode).toEqual(200);
+        expect(res.body).toHaveProperty('strictMusicOnly', true);
+
+        const settingsRes = await request(app).get('/settings');
+        expect(settingsRes.body.strictMusicOnly).toBe(true);
     });
 
     it('GET /queue should return an array', async () => {

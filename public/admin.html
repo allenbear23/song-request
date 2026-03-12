@@ -254,6 +254,13 @@
       <button onclick="saveReadAloud()">儲存設定</button>
     </div>
 
+    <label>嚴格音樂模式</label>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+      <input type="checkbox" id="strictMusicOnlyInput" style="width:20px; height:20px; margin:0;">
+      <span style="font-size:14px; color:#ccc;">啟用 (阻擋點播非音樂分類與超過 10 分鐘的影片)</span>
+      <button onclick="saveStrictMusicOnly()">儲存設定</button>
+    </div>
+
     <div id="msg" class="msg"></div>
   </div>
 
@@ -423,6 +430,7 @@
           if (data.banDuration) document.getElementById('banDurationInput').value = data.banDuration;
           if (data.autoQueue !== undefined) document.getElementById('autoQueueInput').checked = data.autoQueue;
           if (data.readAloud !== undefined) document.getElementById('readAloudInput').checked = data.readAloud;
+          if (data.strictMusicOnly !== undefined) document.getElementById('strictMusicOnlyInput').checked = data.strictMusicOnly;
           if (data.volume !== undefined) {
             document.getElementById('volumeInput').value = data.volume;
             document.getElementById('volumeLabel').innerText = data.volume + '%';
@@ -494,6 +502,21 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) document.getElementById('msg').innerHTML = "<svg class='icon icon-sm'><use href='#icon-check'></use></svg> 朗讀彈幕已" + (data.readAloud ? "啟用" : "關閉");
+          else alert(data.error);
+        })
+        .catch(err => alert("儲存失敗"));
+    }
+
+    function saveStrictMusicOnly() {
+      const enabled = document.getElementById('strictMusicOnlyInput').checked;
+      fetch('/admin/strict-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) document.getElementById('msg').innerHTML = "<svg class='icon icon-sm'><use href='#icon-check'></use></svg> 嚴格音樂模式已" + (data.strictMusicOnly ? "啟用" : "關閉");
           else alert(data.error);
         })
         .catch(err => alert("儲存失敗"));

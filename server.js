@@ -37,7 +37,7 @@ const ADMIN_ROOMS_FILE = 'admin_rooms.json'; // 管理員與房間對應檔
 // 預設設定
 const DEFAULT_SETTINGS = {
   threshold: 3, timeout: 60000, banDuration: 5 * 60 * 1000,
-  autoQueue: true, volume: 100, readAloud: false
+  autoQueue: true, volume: 100, readAloud: false, strictMusicOnly: false
 };
 
 app.use(express.json({ limit: '50mb' })); // 提高限制以支援圖片上傳
@@ -161,8 +161,18 @@ function extractVideoId(url) {
   return s ? s[1] : null;
 }
 
+// Helper: Parse ISO 8601 duration to seconds
+function parseISO8601Duration(duration) {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = parseInt(match[1]) || 0;
+  const minutes = parseInt(match[2]) || 0;
+  const seconds = parseInt(match[3]) || 0;
+  return (hours * 3600) + (minutes * 60) + seconds;
+}
+
 // Fetch full video info: title, channel, thumbnail
-async function fetchVideoInfo(videoId) {
+async function fetchVideoInfo(videoId, strictMusicOnly = false) {
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YT_API_KEY}`);
     const data = await res.json();
@@ -174,6 +184,17 @@ async function fetchVideoInfo(videoId) {
       const rating = item.contentDetails && item.contentDetails.contentRating;
       if (rating && rating.ytRating === 'ytAgeRestricted') {
         return { error: '此影片設有年齡限制，無法在背景播放器中播放' };
+      }
+
+      // 嚴格音樂模式：檢查分類是否為音樂 (categoryId = 10) 以及長度是否過長 (超過 10 分鐘)
+      if (strictMusicOnly) {
+        if (snip.categoryId !== '10') {
+          return { error: '此影片非音樂內容 (已啟用嚴格音樂模式)' };
+        }
+        const durationSec = parseISO8601Duration(item.contentDetails.duration || 'PT0S');
+        if (durationSec > 600) {
+          return { error: '此影片時長超過 10 分鐘，無法點播 (已啟用嚴格音樂模式)' };
+        }
       }
 
       return {
@@ -362,7 +383,8 @@ app.post('/request', async (req, res) => {
       return res.status(400).json({ error: '此歌曲已在排隊中，請選擇其他歌曲' });
     }
 
-    const info = await fetchVideoInfo(videoId);
+    const settings = await getSettings(room);
+    const info = await fetchVideoInfo(videoId, settings.strictMusicOnly);
     if (!info) return res.status(500).json({ error: 'Failed to fetch video info.' });
     if (info.error) return res.status(400).json({ error: info.error });
 
@@ -826,7 +848,8 @@ app.get('/settings', async (req, res) => {
     banDuration: settings.banDuration / 60000,
     autoQueue: settings.autoQueue,
     volume: settings.volume !== undefined ? settings.volume : 100,
-    readAloud: settings.readAloud || false
+    readAloud: settings.readAloud || false,
+    strictMusicOnly: settings.strictMusicOnly
   });
 });
 
@@ -886,6 +909,18 @@ app.post('/admin/read-aloud', protect, async (req, res) => {
   if (typeof enabled === 'boolean') {
     await saveSettings(room, { readAloud: enabled });
     res.json({ ok: true, readAloud: enabled });
+  } else {
+    res.status(400).json({ error: "Invalid value" });
+  }
+});
+
+// 修改嚴格音樂模式 (管理員)
+app.post('/admin/strict-music', protect, async (req, res) => {
+  const room = getRoom(req);
+  const { enabled } = req.body;
+  if (typeof enabled === 'boolean') {
+    await saveSettings(room, { strictMusicOnly: enabled });
+    res.json({ ok: true, strictMusicOnly: enabled });
   } else {
     res.status(400).json({ error: "Invalid value" });
   }

@@ -81,6 +81,7 @@ async function readData(key, room, defaultVal) {
   else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
   else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
   else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
+  else if (key === 'history') fileName = isDefault ? 'history.json' : `history_${room}.json`;
   else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
   else if (key === 'songs') fileName = isDefault ? SONGS_FILE : `songs_${room}.json`;
   else if (key === 'settings') fileName = isDefault ? 'settings.json' : `settings_${room}.json`;
@@ -113,6 +114,7 @@ async function writeData(key, room, data) {
   else if (key === 'users') fileName = isDefault ? USERS_FILE : `users_${room}.json`;
   else if (key === 'queue') fileName = isDefault ? 'requests.json' : `requests_${room}.json`;
   else if (key === 'playlist') fileName = isDefault ? 'playlist.json' : `playlist_${room}.json`;
+  else if (key === 'history') fileName = isDefault ? 'history.json' : `history_${room}.json`;
   else if (key === 'bannedWords') fileName = isDefault ? BANNED_WORDS_FILE : `banned_words_${room}.json`;
   else if (key === 'songs') fileName = isDefault ? SONGS_FILE : `songs_${room}.json`;
   else if (key === 'settings') fileName = isDefault ? 'settings.json' : `settings_${room}.json`;
@@ -148,6 +150,21 @@ const readBannedWords = (room) => readData('bannedWords', room, []);
 const writeBannedWords = (room, w) => writeData('bannedWords', room, w);
 const readSongs = (room) => readData('songs', room, {});
 const writeSongs = (room, s) => writeData('songs', room, s);
+const readHistory = (room) => readData('history', room, []);
+const writeHistory = (room, h) => writeData('history', room, h);
+
+// Record a song into the auto-tracked history, holding max 20 items.
+async function pushToHistory(room, item) {
+  if (!item) return;
+  try {
+    const history = await readHistory(room);
+    history.push(item);
+    if (history.length > 20) history.shift();
+    await writeHistory(room, history);
+  } catch (e) {
+    console.error('pushToHistory error:', e);
+  }
+}
 
 const lastSkipMessages = {}; // { room: message }
 const marquees = {}; // { room: { text, timestamp } }
@@ -503,12 +520,12 @@ async function generateAISongQuery(room) {
       .map(s => s.title)
       .join(', ');
 
-    // 取得歷史播放或是目前在佇列的歌曲，避免 AI 重複點播
+    // 取得歷史播放紀錄，避免 AI 重複點播
     const q = await readData('queue', room, []);
-    const playlist = await readData('playlist', room, []);
+    const history = await readHistory(room);
 
-    // 收集最近的 15 首歌名，避免過度重複
-    const historyItems = [...playlist.slice(-10), ...q.slice(0, 5)];
+    // 收集最近播過的 20 首歌名與當前排隊的歌名
+    const historyItems = [...history, ...q.slice(0, 5)];
     const historyTitles = historyItems.map(item => item.title || '').filter(Boolean).join(', ');
 
     const prompt = `You are a professional DJ. Based on these popular songs in this room: [${recentSongs}]. 
@@ -545,9 +562,10 @@ async function generateAISongQuery(room) {
 }
 
 // 供伺服器端自己搜尋 YouTube 使用的 helper
-async function searchYouTubeServerSide(query) {
+async function searchYouTubeServerSide(query, enforceOfficial = true) {
   try {
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${YT_API_KEY}`;
+    const exactQuery = enforceOfficial ? query + " Official Music Video" : query;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(exactQuery)}&key=${YT_API_KEY}`;
     const searchRes = await fetch(searchUrl);
     const searchData = await searchRes.json();
 
@@ -584,12 +602,12 @@ async function autoAddSong(room, q) {
     const aiQuery = await generateAISongQuery(room);
     console.log(`AI suggested query: ${aiQuery}`);
 
-    let ytResult = await searchYouTubeServerSide(aiQuery);
+    let ytResult = await searchYouTubeServerSide(aiQuery, true);
 
     // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次
     if (!ytResult || (await checkIfInappropriate(ytResult.title))) {
       console.log(`Initial AI fallback... trying default query.`);
-      ytResult = await searchYouTubeServerSide("華語 流行 歌曲 熱門");
+      ytResult = await searchYouTubeServerSide("華語 流行 歌曲 熱門", false);
     }
 
     // 退無可退，從資料庫撈歷史歌曲
@@ -635,7 +653,10 @@ app.get('/next', async (req, res) => {
 app.post('/finish', async (req, res) => {
   const room = getRoom(req);
   const q = await readQueue(room);
-  if (q.length) q.shift();
+  if (q.length) {
+    await pushToHistory(room, q[0]);
+    q.shift();
+  }
   await writeQueue(room, q);
   res.json({ ok: true });
 });
@@ -719,6 +740,7 @@ app.post('/vote-skip', async (req, res) => {
       timestamp: Date.now()
     };
 
+    await pushToHistory(room, q[0]);
     q.shift(); // 移除目前歌曲
     await writeQueue(room, q);
     return res.json({ ok: true, message: "票數已達，切歌！", skipped: true });
@@ -954,7 +976,9 @@ app.post('/admin/skip', protect, async (req, res) => {
   // 執行切歌邏輯
   let skippedItem = null;
   if (q.length > 0) {
-    skippedItem = q.shift();
+    skippedItem = q[0];
+    await pushToHistory(room, skippedItem);
+    q.shift();
     await writeQueue(room, q);
 
     // 執行停權 (5分鐘)

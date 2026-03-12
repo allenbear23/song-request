@@ -467,35 +467,32 @@ async function checkIfInappropriate(text) {
 // 自動加入推薦歌曲 (Helper)
 async function autoAddSong(room, q) {
   try {
-    const songs = await readSongs(room);
-    const ids = Object.keys(songs);
-    if (ids.length === 0) return;
+    const aiQuery = await generateAISongQuery(room);
+    console.log(`AI suggested query: ${aiQuery}`);
 
-    // 洗牌並尋找適合的歌曲（最多嘗試 3 次）
-    const shuffledIds = ids.sort(() => 0.5 - Math.random());
-    let selectedId = null;
-    let fallbackId = shuffledIds[0];
+    let ytResult = await searchYouTubeServerSide(aiQuery);
 
-    for (let i = 0; i < Math.min(3, shuffledIds.length); i++) {
-      const testId = shuffledIds[i];
-      const s = songs[testId];
-      const isInappropriate = await checkIfInappropriate(s.title);
-
-      if (!isInappropriate) {
-        selectedId = testId;
-        break;
-      }
+    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次
+    if (!ytResult || (await checkIfInappropriate(ytResult.title))) {
+      console.log(`Initial AI fallback... trying default query.`);
+      ytResult = await searchYouTubeServerSide("華語 流行 歌曲 熱門");
     }
 
-    // 如果連續 3 次都失敗（或不當），回退使用第一個
-    const rId = selectedId || fallbackId;
-    const s = songs[rId];
+    // 退無可退，從資料庫撈歷史歌曲
+    if (!ytResult) {
+      const songs = await readSongs(room);
+      const ids = Object.keys(songs);
+      if (ids.length === 0) return;
+      const rId = ids[Math.floor(Math.random() * ids.length)];
+      const s = songs[rId];
+      ytResult = { videoId: rId, title: s.title, channel: "系統歷史推薦", thumbnail: s.thumbnail };
+    }
 
     const newItem = {
-      url: 'https://www.youtube.com/watch?v=' + rId,
-      title: s.title,
-      channel: "系統自動推薦",
-      thumbnail: s.thumbnail,
+      url: 'https://www.youtube.com/watch?v=' + ytResult.videoId,
+      title: ytResult.title,
+      channel: "系統自動推薦 (AI DJ)",
+      thumbnail: ytResult.thumbnail,
       requester: { name: "系統" },
       votes: 0,
       votedIds: []
@@ -503,7 +500,7 @@ async function autoAddSong(room, q) {
 
     q.push(newItem);
     await writeQueue(room, q);
-    console.log('Auto-queued:', s.title);
+    console.log('Auto-queued by AI DJ:', ytResult.title);
   } catch (e) {
     console.error('Auto queue error:', e);
   }

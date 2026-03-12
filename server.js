@@ -122,6 +122,7 @@ async function writeData(key, room, data) {
 
   try {
     await fs.promises.writeFile(fileName, JSON.stringify(data, null, 2));
+    console.log(`[writeData] Successfully wrote ${key} to ${fileName}`);
   } catch (e) { console.error(`writeData(${key}) File error:`, e); }
 }
 
@@ -155,8 +156,12 @@ const writeHistory = (room, h) => writeData('history', room, h);
 
 // Record a song into the auto-tracked history, holding max 20 items.
 async function pushToHistory(room, item) {
-  if (!item) return;
+  if (!item) {
+    console.log(`[pushToHistory] No item provided for room ${room}`);
+    return;
+  }
   try {
+    console.log(`[pushToHistory] Adding "${item.title}" to history of room ${room}`);
     const history = await readHistory(room);
     history.push(item);
     if (history.length > 20) history.shift();
@@ -525,16 +530,25 @@ async function generateAISongQuery(room) {
     const history = await readHistory(room);
 
     // 收集最近播過的 20 首歌名與當前排隊的歌名
-    const historyItems = [...history, ...q.slice(0, 5)];
-    const historyTitles = historyItems.map(item => item.title || '').filter(Boolean).join(', ');
+    const historyItems = [...history, ...q];
+    const historyTitles = historyItems
+      .map(item => item.title || '')
+      .map(t => t.replace(/\(Official.*?\)|\[.*?\]/gi, '').trim()) // 簡單正規化
+      .filter(Boolean);
+
+    // 去重
+    const uniqueBanned = [...new Set(historyTitles)].join(', ');
+
+    console.log(`[AI DJ] Negative constraints for room ${room}: ${uniqueBanned}`);
 
     const prompt = `You are a professional DJ. Based on these popular songs in this room: [${recentSongs}]. 
     Please suggest exactly ONE highly related but different song that the audience will love. 
-    CRITICAL INSTRUCTION: You MUST NOT suggest any of these recently played songs: [${historyTitles}]. If you suggest a song from this list, you fail.
+    CRITICAL INSTRUCTION: You MUST NOT suggest any of these previously played or currently queued songs: [${uniqueBanned}]. 
+    Even if the songs are from the same artist, choose a DIFFERENT one. If you suggest a song from this list, you fail.
     Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct",
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
       {
         headers: {
           Authorization: `Bearer ${hfApiKey}`,
@@ -542,8 +556,8 @@ async function generateAISongQuery(room) {
         },
         method: "POST",
         body: JSON.stringify({
-          inputs: prompt,
-          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.95 }
+          inputs: `<s>[INST] ${prompt} [/INST]`,
+          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.9 }
         }),
       }
     );
@@ -562,38 +576,41 @@ async function generateAISongQuery(room) {
 }
 
 // 供伺服器端自己搜尋 YouTube 使用的 helper
-async function searchYouTubeServerSide(query, enforceOfficial = true) {
+// 返回多個結果供比對，或是返回單一結果
+async function searchYouTubeServerSide(query, enforceOfficial = true, multi = false) {
   try {
     const exactQuery = enforceOfficial ? query + " Official Music Video" : query;
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(exactQuery)}&key=${YT_API_KEY}`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(exactQuery)}&key=${YT_API_KEY}`;
     const searchRes = await fetch(searchUrl);
     const searchData = await searchRes.json();
 
-    if (!searchData.items || searchData.items.length === 0) return null;
+    if (!searchData.items || searchData.items.length === 0) return multi ? [] : null;
 
     const videoIds = searchData.items.map(it => it.id.videoId).join(',');
     const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${YT_API_KEY}`;
     const videosRes = await fetch(videosUrl);
     const videosData = await videosRes.json();
 
-    if (!videosData.items) return null;
+    if (!videosData.items) return multi ? [] : null;
 
-    // 找第一首沒有年齡限制的影片
+    const results = [];
+    // 找沒有年齡限制的影片
     for (const it of videosData.items) {
       const rating = it.contentDetails && it.contentDetails.contentRating;
       if (!(rating && rating.ytRating === 'ytAgeRestricted')) {
-        return {
+        results.push({
           videoId: it.id,
           title: it.snippet.title,
           channel: it.snippet.channelTitle,
           thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
-        };
+        });
       }
     }
+    return multi ? results : (results[0] || null);
   } catch (e) {
     console.error("searchYouTubeServerSide error:", e);
   }
-  return null;
+  return multi ? [] : null;
 }
 
 // 自動加入推薦歌曲 (Helper)
@@ -602,12 +619,23 @@ async function autoAddSong(room, q) {
     const aiQuery = await generateAISongQuery(room);
     console.log(`AI suggested query: ${aiQuery}`);
 
+    // 取得歷史播放紀錄，避免重複
+    const history = await readHistory(room);
+    const historyTitles = history.map(h => (h.title || '').toLowerCase());
+
     let ytResult = await searchYouTubeServerSide(aiQuery, true);
 
-    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次
+    // 如果 AI 推薦的正好在歷史紀錄中，嘗試往下找一個 (如果有 multi 功能的話更好，這裡先簡單處理)
+
+    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次 (加入隨機關鍵字避免重複)
     if (!ytResult || (await checkIfInappropriate(ytResult.title))) {
-      console.log(`Initial AI fallback... trying default query.`);
-      ytResult = await searchYouTubeServerSide("華語 流行 歌曲 熱門", false);
+      const fallbacks = ["華語 流行 歌曲 熱門挑戰", "2025 流行 音樂", "Billboard Hot 100 Charts", "KPOP New Releases"];
+      const rQuery = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+      console.log(`Initial AI fallback... trying randomized query: ${rQuery}`);
+
+      const results = await searchYouTubeServerSide(rQuery, false, true);
+      // 從結果中挑選一個不在歷史紀錄中的
+      ytResult = results.find(r => !historyTitles.some(ht => r.title.toLowerCase().includes(ht.slice(0, 5)))) || results[0];
     }
 
     // 退無可退，從資料庫撈歷史歌曲

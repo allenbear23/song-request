@@ -421,6 +421,49 @@ app.post('/request', async (req, res) => {
 
 
 
+// 使用 Hugging Face 模型檢查文字是否包含不當內容
+async function checkIfInappropriate(text) {
+  const hfApiKey = process.env.HF_API_KEY;
+  if (!hfApiKey) return false; // 如果沒有 API Key，則略過檢查
+
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/unitary/multilingual-toxic-xlm-roberta",
+      {
+        headers: {
+          Authorization: `Bearer ${hfApiKey}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        body: JSON.stringify({ inputs: text }),
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('Hugging Face API returned status:', response.status);
+      return false;
+    }
+
+    const result = await response.json();
+
+    // Hugging Face 回傳的格式通常為 [[{label: 'toxic', score: 0.8}, ...]]
+    if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
+      for (const item of result[0]) {
+        if (['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate'].includes(item.label.toLowerCase())) {
+          if (item.score > 0.5) {
+            console.log(`Text "${text}" flagged as inappropriate due to ${item.label} (${item.score})`);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  } catch (e) {
+    console.error('Hugging Face API error:', e);
+    return false;
+  }
+}
+
 // 自動加入推薦歌曲 (Helper)
 async function autoAddSong(room, q) {
   try {
@@ -428,8 +471,24 @@ async function autoAddSong(room, q) {
     const ids = Object.keys(songs);
     if (ids.length === 0) return;
 
-    // 隨機挑選一首
-    const rId = ids[Math.floor(Math.random() * ids.length)];
+    // 洗牌並尋找適合的歌曲（最多嘗試 3 次）
+    const shuffledIds = ids.sort(() => 0.5 - Math.random());
+    let selectedId = null;
+    let fallbackId = shuffledIds[0];
+
+    for (let i = 0; i < Math.min(3, shuffledIds.length); i++) {
+      const testId = shuffledIds[i];
+      const s = songs[testId];
+      const isInappropriate = await checkIfInappropriate(s.title);
+
+      if (!isInappropriate) {
+        selectedId = testId;
+        break;
+      }
+    }
+
+    // 如果連續 3 次都失敗（或不當），回退使用第一個
+    const rId = selectedId || fallbackId;
     const s = songs[rId];
 
     const newItem = {

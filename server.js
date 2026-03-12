@@ -548,7 +548,7 @@ async function generateAISongQuery(room) {
     Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+      "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
       {
         headers: {
           Authorization: `Bearer ${hfApiKey}`,
@@ -556,8 +556,8 @@ async function generateAISongQuery(room) {
         },
         method: "POST",
         body: JSON.stringify({
-          inputs: `<s>[INST] ${prompt} [/INST]`,
-          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.9 }
+          inputs: prompt,
+          parameters: { max_new_tokens: 50, return_full_text: false, temperature: 0.7 }
         }),
       }
     );
@@ -621,21 +621,27 @@ async function autoAddSong(room, q) {
 
     // 取得歷史播放紀錄，避免重複
     const history = await readHistory(room);
-    const historyTitles = history.map(h => (h.title || '').toLowerCase());
+    const historyIds = history.map(h => h.videoId).filter(Boolean);
+    const historyTitles = history.map(h => (h.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
 
     let ytResult = await searchYouTubeServerSide(aiQuery, true);
 
-    // 如果 AI 推薦的正好在歷史紀錄中，嘗試往下找一個 (如果有 multi 功能的話更好，這裡先簡單處理)
-
-    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次 (加入隨機關鍵字避免重複)
+    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次
     if (!ytResult || (await checkIfInappropriate(ytResult.title))) {
-      const fallbacks = ["華語 流行 歌曲 熱門挑戰", "2025 流行 音樂", "Billboard Hot 100 Charts", "KPOP New Releases"];
+      const fallbacks = ["華語 流行 歌曲 熱門", "2025 Hits", "Billboard Hot 100", "KPOP New"];
       const rQuery = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-      console.log(`Initial AI fallback... trying randomized query: ${rQuery}`);
+      console.log(`[AI DJ] AI failed or inappropriate. Fallback query: ${rQuery}`);
 
       const results = await searchYouTubeServerSide(rQuery, false, true);
-      // 從結果中挑選一個不在歷史紀錄中的
-      ytResult = results.find(r => !historyTitles.some(ht => r.title.toLowerCase().includes(ht.slice(0, 5)))) || results[0];
+
+      // 挑選一個完全沒出現過的
+      ytResult = results.find(r => {
+        const rId = r.videoId;
+        const rTitle = r.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+        const isRepeat = historyIds.includes(rId) || historyTitles.some(ht => rTitle.includes(ht) || ht.includes(rTitle));
+        if (isRepeat) console.log(`[AI DJ] Skipping repeat candidate: ${r.title}`);
+        return !isRepeat;
+      }) || results[0];
     }
 
     // 退無可退，從資料庫撈歷史歌曲

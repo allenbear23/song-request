@@ -481,8 +481,17 @@ async function generateAISongQuery(room) {
       .map(s => s.title)
       .join(', ');
 
+    // 取得歷史播放或是目前在佇列的歌曲，避免 AI 重複點播
+    const q = await readData('queue', room, []);
+    const playlist = await readData('playlist', room, []);
+
+    // 收集最近的 15 首歌名，避免過度重複
+    const historyItems = [...playlist.slice(-10), ...q.slice(0, 5)];
+    const historyTitles = historyItems.map(item => item.title || '').filter(Boolean).join(', ');
+
     const prompt = `You are a professional DJ. Based on these popular songs in this room: [${recentSongs}]. 
     Please suggest exactly ONE highly related but different song that the audience will love. 
+    CRITICAL INSTRUCTION: You MUST NOT suggest any of these recently played songs: [${historyTitles}]. If you suggest a song from this list, you fail.
     Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
 
     const response = await fetch(
@@ -495,7 +504,7 @@ async function generateAISongQuery(room) {
         method: "POST",
         body: JSON.stringify({
           inputs: prompt,
-          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.7 }
+          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.95 }
         }),
       }
     );

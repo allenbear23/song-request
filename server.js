@@ -464,6 +464,89 @@ async function checkIfInappropriate(text) {
   }
 }
 
+// 生成 AI 推薦的 YouTube 搜尋字串
+async function generateAISongQuery(room) {
+  const hfApiKey = process.env.HF_API_KEY;
+  const defaultQueries = ["周杰倫 最新", "告五人", "華語 流行 推薦", "Billboard Hot 100", "KPOP Hit"];
+
+  if (!hfApiKey) {
+    return defaultQueries[Math.floor(Math.random() * defaultQueries.length)];
+  }
+
+  try {
+    const songs = await readSongs(room);
+    const recentSongs = Object.values(songs)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map(s => s.title)
+      .join(', ');
+
+    const prompt = `You are a professional DJ. Based on these popular songs in this room: [${recentSongs}]. 
+    Please suggest exactly ONE highly related but different song that the audience will love. 
+    Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
+
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct",
+      {
+        headers: {
+          Authorization: `Bearer ${hfApiKey}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: { max_new_tokens: 30, return_full_text: false, temperature: 0.7 }
+        }),
+      }
+    );
+
+    if (!response.ok) throw new Error(`HF API Error: ${response.status}`);
+    const result = await response.json();
+
+    if (Array.isArray(result) && result[0] && result[0].generated_text) {
+      const query = result[0].generated_text.trim();
+      return query || defaultQueries[Math.floor(Math.random() * defaultQueries.length)];
+    }
+  } catch (e) {
+    console.error('generateAISongQuery error:', e);
+  }
+  return defaultQueries[Math.floor(Math.random() * defaultQueries.length)];
+}
+
+// 供伺服器端自己搜尋 YouTube 使用的 helper
+async function searchYouTubeServerSide(query) {
+  try {
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${YT_API_KEY}`;
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
+
+    if (!searchData.items || searchData.items.length === 0) return null;
+
+    const videoIds = searchData.items.map(it => it.id.videoId).join(',');
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${YT_API_KEY}`;
+    const videosRes = await fetch(videosUrl);
+    const videosData = await videosRes.json();
+
+    if (!videosData.items) return null;
+
+    // 找第一首沒有年齡限制的影片
+    for (const it of videosData.items) {
+      const rating = it.contentDetails && it.contentDetails.contentRating;
+      if (!(rating && rating.ytRating === 'ytAgeRestricted')) {
+        return {
+          videoId: it.id,
+          title: it.snippet.title,
+          channel: it.snippet.channelTitle,
+          thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
+        };
+      }
+    }
+  } catch (e) {
+    console.error("searchYouTubeServerSide error:", e);
+  }
+  return null;
+}
+
 // 自動加入推薦歌曲 (Helper)
 async function autoAddSong(room, q) {
   try {

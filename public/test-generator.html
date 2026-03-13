@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌單測試生成器 | 放歌啦</title>
+    <style>
+        :root {
+            --primary: #00ffcc;
+            --secondary: #007bff;
+            --bg: #0b0b0b;
+            --card-bg: #161616;
+            --text: #f5f5f5;
+            --accent: #ff4444;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .input-group {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #ccc;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .preset-card {
+            background: #222;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid #333;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .preset-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            background: #2a2a2a;
+        }
+
+        .preset-card h3 {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: var(--primary);
+        }
+
+        .preset-card p {
+            font-size: 14px;
+            color: #888;
+            margin: 0;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            background: #111;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #222;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-success {
+            color: #4caf50;
+        }
+
+        .log-error {
+            color: #f44336;
+        }
+
+        .log-info {
+            color: #2196f3;
+        }
+
+        .btn-main {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(45deg, var(--secondary), var(--primary));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .btn-main:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(0, 255, 204, 0.3);
+        }
+
+        .btn-main:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>歌單測試生成器</h1>
+        <p class="subtitle">快速為指定房間建立測試資料，支援批次加入</p>
+
+        <div class="input-group">
+            <label for="roomInput">房間代碼 (Room ID)</label>
+            <input type="text" id="roomInput" placeholder="例如: 7VMEKW">
+        </div>
+
+        <div class="preset-grid">
+            <div class="preset-card" onclick="addSet('mandopop')">
+                <h3>華語流行經典</h3>
+                <p>周杰倫、蔡依林、告五人...</p>
+            </div>
+            <div class="preset-card" onclick="addSet('kpop')">
+                <h3>K-POP 熱門</h3>
+                <p>BTS, BLACKPINK, NewJeans...</p>
+            </div>
+            <div class="preset-card" onclick="addSet('jpop')">
+                <h3>J-POP / 動漫</h3>
+                <p>YOASOBI, 米津玄師...</p>
+            </div>
+            <div class="preset-card" onclick="addSet('rock')">
+                <h3>經典搖滾</h3>
+                <p>Queen, Coldplay, Linkin Park...</p>
+            </div>
+        </div>
+
+        <button id="addAllBtn" class="btn-main" onclick="addAllPresets()" style="display:none;">加入所有預設歌單</button>
+
+        <div class="status" id="statusLog">
+            <div class="log-info">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        const presets = {
+            mandopop: [
+                { title: "周杰倫 - 告白氣球", url: "https://www.youtube.com/watch?v=bu7nU9Mhpyo" },
+                { title: "告五人 - 愛人錯過", url: "https://www.youtube.com/watch?v=8m9_OnU_o10" },
+                { title: "八三夭 - 想見你想見你想見你", url: "https://www.youtube.com/watch?v=yYvS6OInH6o" },
+                { title: "茄子蛋 - 浪子回頭", url: "https://www.youtube.com/watch?v=x3bDhtuC5yk" }
+            ],
+            kpop: [
+                { title: "NewJeans - OMG", url: "https://www.youtube.com/watch?v=sVTy_wno_dg" },
+                { title: "BLACKPINK - PINK VENOM", url: "https://www.youtube.com/watch?v=gQlMMD8auRo" },
+                { title: "BTS - Dynamite", url: "https://www.youtube.com/watch?v=gdZLi9oWNZg" }
+            ],
+            jpop: [
+                { title: "YOASOBI - IDOL", url: "https://www.youtube.com/watch?v=ZRtdQ81jPUQ" },
+                { title: "米津玄師 - KICK BACK", url: "https://www.youtube.com/watch?v=M2cckDmNLMI" },
+                { title: "LiSA - 紅蓮華", url: "https://www.youtube.com/watch?v=MpYy6wwqxoo" }
+            ],
+            rock: [
+                { title: "Coldplay - Yellow", url: "https://www.youtube.com/watch?v=yKNxeF4KMsY" },
+                { title: "Linkin Park - Numb", url: "https://www.youtube.com/watch?v=kXYiU_JCYtU" },
+                { title: "Queen - Bohemian Rhapsody", url: "https://www.youtube.com/watch?v=fJ9rUzIMcZQ" }
+            ]
+        };
+
+        // 從網址取得預設房間
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomFromUrl = urlParams.get('room');
+        if (roomFromUrl) {
+            document.getElementById('roomInput').value = roomFromUrl;
+        }
+
+        function log(msg, type = 'info') {
+            const logPanel = document.getElementById('statusLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logPanel.prepend(entry);
+        }
+
+        async function addSong(song, room) {
+            log(`正在加入: ${song.title}...`);
+            try {
+                const res = await fetch(`/request?room=${room}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: song.url,
+                        token: 'bypass-for-test', // 隨便填，靠 user bypass
+                        user: { displayName: '本地測試員', userId: 'tester-' + Math.random().toString(36).substring(7) }
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    log(`成功加入: ${song.title}`, 'success');
+                } else {
+                    log(`失敗: ${song.title} - ${data.error}`, 'error');
+                }
+            } catch (e) {
+                log(`錯誤: ${song.title} - ${e.message}`, 'error');
+            }
+        }
+
+        async function addSet(setName) {
+            const room = document.getElementById('roomInput').value;
+            if (!room) {
+                alert('請先輸入房間代碼');
+                return;
+            }
+            log(`開始批次加入「${setName}」歌單...`, 'info');
+            const songs = presets[setName];
+            for (const song of songs) {
+                await addSong(song, room);
+                // 稍微延遲避免過快可能觸發的限制
+                await new Promise(r => setTimeout(r, 500));
+            }
+            log(`「${setName}」加入完成！`, 'success');
+        }
+
+        async function addAllPresets() {
+            for (const key in presets) {
+                await addSet(key);
+            }
+        }
+    </script>
+</body>
+
+</html>

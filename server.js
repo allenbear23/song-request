@@ -622,6 +622,7 @@ async function searchYouTubeServerSide(query, enforceOfficial = true, multi = fa
           title: it.snippet.title,
           channel: it.snippet.channelTitle,
           thumbnail: it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default).url,
+          durationSec: parseISO8601Duration(it.contentDetails.duration || 'PT0S')
         });
       }
     }
@@ -650,39 +651,56 @@ async function autoAddSong(room, q) {
     const historyTitles = history.map(h => (h.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
     const queueTitles = q.map(item => (item.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
 
-    // 檢查是否為重複的 Helper
-    const isRepeat = (r) => {
+    // 檢查是否符合規範 (非重複、Official MV、10分鐘內)
+    const isValid = (r) => {
       const rId = r.videoId;
-      const rTitle = r.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
-      return historyIds.includes(rId) ||
-        historyTitles.some(ht => rTitle.includes(ht) || ht.includes(rTitle)) ||
-        queueTitles.some(qt => rTitle.includes(qt) || qt.includes(rTitle));
+      const rTitle = r.title.toLowerCase();
+      const cleanTitle = rTitle.replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+
+      const repeat = historyIds.includes(rId) ||
+        historyTitles.some(ht => cleanTitle.includes(ht) || ht.includes(cleanTitle)) ||
+        queueTitles.some(qt => cleanTitle.includes(qt) || qt.includes(cleanTitle));
+
+      if (repeat) return false;
+
+      // 檢查是否為 Official MV (包含 Official 且包含 MV/Music Video/Video)
+      const isOfficial = rTitle.includes('official') && (rTitle.includes('mv') || rTitle.includes('music video') || rTitle.includes('video'));
+      if (!isOfficial) {
+        console.log(`[AI DJ] Skipping non-official video: ${r.title}`);
+        return false;
+      }
+
+      // 檢查時長 (10 分鐘 = 600 秒)
+      if (r.durationSec > 600) {
+        console.log(`[AI DJ] Skipping long video (${r.durationSec}s): ${r.title}`);
+        return false;
+      }
+
+      return true;
     };
 
     let ytResult = null;
 
     // 1. 嘗試 smart AI query (抓多個來隨機選)
     const aiResults = await searchYouTubeServerSide(aiQuery, true, true);
-    const candidates = aiResults.filter(r => !isRepeat(r));
+    const candidates = aiResults.filter(isValid);
 
     if (candidates.length > 0) {
-      // 隨機從不重複的候選人中選一個 (不總是選第一個)
+      // 隨機從合規的候選人中選一個
       ytResult = candidates[Math.floor(Math.random() * candidates.length)];
-      console.log(`[AI DJ] Selected randomly from ${candidates.length} AI candidates: ${ytResult.title}`);
+      console.log(`[AI DJ] Selected randomly from ${candidates.length} valid AI candidates: ${ytResult.title}`);
     } else {
-      // 2. 如果 smart query 找不到不重複的，抓熱門歌清單 (Fallback)
-      const fallbacks = ["華語 流行 歌曲 熱門", "2025 Hits", "Billboard Hot 100", "KPOP New"];
+      // 2. 如果 AI query 沒找到合規的，抓熱門歌清單 (Fallback)
+      const fallbacks = ["華語 流行 歌曲 熱門 Official MV", "2025 New Hits Official MV", "KPOP New Official MV"];
       const rQuery = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-      console.log(`[AI DJ] AI query failed or all repeats. Fallback query: ${rQuery}`);
+      console.log(`[AI DJ] AI valid candidates empty. Fallback query: ${rQuery}`);
 
       const results = await searchYouTubeServerSide(rQuery, false, true);
+      const fallbackCandidates = results.filter(isValid);
 
-      // 挑選一個完全沒出現過的
-      ytResult = results.find(r => {
-        const repeat = isRepeat(r);
-        if (repeat) console.log(`[AI DJ] Skipping repeat candidate: ${r.title}`);
-        return !repeat;
-      }) || results[0];
+      ytResult = fallbackCandidates.length > 0
+        ? fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)]
+        : null;
     }
 
     // 3. 退無可退，從資料庫撈歷史歌曲

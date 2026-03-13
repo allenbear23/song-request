@@ -166,7 +166,7 @@ async function pushToHistory(room, item) {
     console.log(`[pushToHistory] Adding "${item.title}" to history of room ${room}`);
     const history = await readHistory(room);
     history.push(item);
-    if (history.length > 20) history.shift();
+    if (history.length > 100) history.shift(); // Keep last 100 songs
     await writeHistory(room, history);
   } catch (e) {
     console.error('pushToHistory error:', e);
@@ -514,7 +514,12 @@ async function checkIfInappropriate(text) {
 // 生成 AI 推薦的 YouTube 搜尋字串
 async function generateAISongQuery(room) {
   const hfApiKey = process.env.HF_API_KEY;
-  const defaultQueries = ["周杰倫 最新", "告五人", "華語 流行 推薦", "Billboard Hot 100", "KPOP Hit"];
+  const defaultQueries = [
+    "周杰倫 最新", "告五人 推薦", "華語 流行 熱門", "Billboard Hot 100", "KPOP Hit",
+    "80s Classic Rock", "90s Mandopop", "Chill Lofi Beats", "EDM Festival Hits",
+    "Tik Tok Viral Songs", "Disney Movie Songs", "Jazz Piano for relax",
+    "Gaming Music NCS", "Anime Opening Songs"
+  ];
 
   if (!hfApiKey) {
     return defaultQueries[Math.floor(Math.random() * defaultQueries.length)];
@@ -522,8 +527,12 @@ async function generateAISongQuery(room) {
 
   try {
     const songs = await readSongs(room);
-    const recentSongs = Object.values(songs)
+    const songList = Object.values(songs);
+    // 隨機挑選 10 首熱門歌作為上下文，增加隨機性
+    const recentSongs = songList
       .sort((a, b) => b.count - a.count)
+      .slice(0, 30) // 從前 30 名選
+      .sort(() => Math.random() - 0.5) // 打亂
       .slice(0, 10)
       .map(s => s.title)
       .join(', ');
@@ -532,7 +541,7 @@ async function generateAISongQuery(room) {
     const q = await readData('queue', room, []);
     const history = await readHistory(room);
 
-    // 收集最近播過的 20 首歌名與當前排隊的歌名
+    // 收集最近播過的歌與當前排隊的歌名
     const historyItems = [...history, ...q];
     const historyTitles = historyItems
       .map(item => item.title || '')
@@ -544,11 +553,15 @@ async function generateAISongQuery(room) {
 
     console.log(`[AI DJ] Negative constraints for room ${room}: ${uniqueBanned}`);
 
-    const prompt = `You are a professional DJ. Based on these popular songs in this room: [${recentSongs}]. 
-    Please suggest exactly ONE highly related but different song that the audience will love. 
-    CRITICAL INSTRUCTION: You MUST NOT suggest any of these previously played or currently queued songs: [${uniqueBanned}]. 
-    Even if the songs are from the same artist, choose a DIFFERENT one. If you suggest a song from this list, you fail.
-    Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
+    // 加入隨機因素 (隨機時間戳或種子)
+    const randomnessFactor = `[Variety ID: ${Math.random().toString(36).substring(7)}]`;
+
+    const prompt = `You are a creative DJ. Based on these songs liked in this room: [${recentSongs}]. 
+    Current mood factor: ${randomnessFactor}.
+    Please suggest ONE highly related but different song. Be creative and surprising!
+    CRITICAL: DO NOT suggest any of these: [${uniqueBanned}]. 
+    If you suggest a song from this list, you fail.
+    Respond with ONLY 'Song Name - Artist Name'.`;
 
     const response = await fetch(
       "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
@@ -560,7 +573,7 @@ async function generateAISongQuery(room) {
         method: "POST",
         body: JSON.stringify({
           inputs: prompt,
-          parameters: { max_new_tokens: 50, return_full_text: false, temperature: 0.7 }
+          parameters: { max_new_tokens: 50, return_full_text: false, temperature: 0.9 }
         }),
       }
     );
@@ -648,12 +661,14 @@ async function autoAddSong(room, q) {
 
     let ytResult = null;
 
-    // 1. 嘗試 smart AI query (抓多個來選)
+    // 1. 嘗試 smart AI query (抓多個來隨機選)
     const aiResults = await searchYouTubeServerSide(aiQuery, true, true);
-    ytResult = aiResults.find(r => !isRepeat(r));
+    const candidates = aiResults.filter(r => !isRepeat(r));
 
-    if (ytResult) {
-      console.log(`[AI DJ] Selected from AI query: ${ytResult.title}`);
+    if (candidates.length > 0) {
+      // 隨機從不重複的候選人中選一個 (不總是選第一個)
+      ytResult = candidates[Math.floor(Math.random() * candidates.length)];
+      console.log(`[AI DJ] Selected randomly from ${candidates.length} AI candidates: ${ytResult.title}`);
     } else {
       // 2. 如果 smart query 找不到不重複的，抓熱門歌清單 (Fallback)
       const fallbacks = ["華語 流行 歌曲 熱門", "2025 Hits", "Billboard Hot 100", "KPOP New"];

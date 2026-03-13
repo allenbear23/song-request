@@ -57,6 +57,8 @@ function getRoom(req) {
   return req.query.room || req.body.room || 'default';
 }
 
+const recommendingRooms = new Set();
+
 // 權限驗證 (暫時開放，為了讓使用者快速上手)
 const protect = (req, res, next) => next();
 
@@ -619,6 +621,12 @@ async function searchYouTubeServerSide(query, enforceOfficial = true, multi = fa
 
 // 自動加入推薦歌曲 (Helper)
 async function autoAddSong(room, q) {
+  if (recommendingRooms.has(room)) {
+    console.log(`[AI DJ] Recommendation already in progress for room ${room}. Skipping.`);
+    return;
+  }
+  recommendingRooms.add(room);
+
   try {
     const aiQuery = await generateAISongQuery(room);
     console.log(`AI suggested query: ${aiQuery}`);
@@ -627,35 +635,58 @@ async function autoAddSong(room, q) {
     const history = await readHistory(room);
     const historyIds = history.map(h => h.videoId).filter(Boolean);
     const historyTitles = history.map(h => (h.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
+    const queueTitles = q.map(item => (item.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
 
-    let ytResult = await searchYouTubeServerSide(aiQuery, true);
+    // 檢查是否為重複的 Helper
+    const isRepeat = (r) => {
+      const rId = r.videoId;
+      const rTitle = r.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+      return historyIds.includes(rId) ||
+        historyTitles.some(ht => rTitle.includes(ht) || ht.includes(rTitle)) ||
+        queueTitles.some(qt => rTitle.includes(qt) || qt.includes(rTitle));
+    };
 
-    // 如果找不到或是查出來是不當訊息，隨便抓熱門歌清單重試一次
-    if (!ytResult || (await checkIfInappropriate(ytResult.title))) {
+    let ytResult = null;
+
+    // 1. 嘗試 smart AI query (抓多個來選)
+    const aiResults = await searchYouTubeServerSide(aiQuery, true, true);
+    ytResult = aiResults.find(r => !isRepeat(r));
+
+    if (ytResult) {
+      console.log(`[AI DJ] Selected from AI query: ${ytResult.title}`);
+    } else {
+      // 2. 如果 smart query 找不到不重複的，抓熱門歌清單 (Fallback)
       const fallbacks = ["華語 流行 歌曲 熱門", "2025 Hits", "Billboard Hot 100", "KPOP New"];
       const rQuery = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-      console.log(`[AI DJ] AI failed or inappropriate. Fallback query: ${rQuery}`);
+      console.log(`[AI DJ] AI query failed or all repeats. Fallback query: ${rQuery}`);
 
       const results = await searchYouTubeServerSide(rQuery, false, true);
 
       // 挑選一個完全沒出現過的
       ytResult = results.find(r => {
-        const rId = r.videoId;
-        const rTitle = r.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
-        const isRepeat = historyIds.includes(rId) || historyTitles.some(ht => rTitle.includes(ht) || ht.includes(rTitle));
-        if (isRepeat) console.log(`[AI DJ] Skipping repeat candidate: ${r.title}`);
-        return !isRepeat;
+        const repeat = isRepeat(r);
+        if (repeat) console.log(`[AI DJ] Skipping repeat candidate: ${r.title}`);
+        return !repeat;
       }) || results[0];
     }
 
-    // 退無可退，從資料庫撈歷史歌曲
+    // 3. 退無可退，從資料庫撈歷史歌曲
     if (!ytResult) {
       const songs = await readSongs(room);
       const ids = Object.keys(songs);
-      if (ids.length === 0) return;
-      const rId = ids[Math.floor(Math.random() * ids.length)];
-      const s = songs[rId];
-      ytResult = { videoId: rId, title: s.title, channel: "系統歷史推薦", thumbnail: s.thumbnail };
+      if (ids.length > 0) {
+        const potentialIds = ids.filter(id => !historyIds.includes(id));
+        const rId = potentialIds.length > 0
+          ? potentialIds[Math.floor(Math.random() * potentialIds.length)]
+          : ids[Math.floor(Math.random() * ids.length)];
+        const s = songs[rId];
+        ytResult = { videoId: rId, title: s.title, channel: "系統歷史推薦", thumbnail: s.thumbnail };
+      }
+    }
+
+    if (!ytResult) {
+      recommendingRooms.delete(room);
+      return;
     }
 
     const newItem = {
@@ -673,6 +704,8 @@ async function autoAddSong(room, q) {
     console.log('Auto-queued by AI DJ:', ytResult.title);
   } catch (e) {
     console.error('Auto queue error:', e);
+  } finally {
+    recommendingRooms.delete(room);
   }
 }
 

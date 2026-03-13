@@ -690,16 +690,7 @@ async function autoAddSong(room, q) {
       console.log(`[AI DJ] Selected randomly from ${candidates.length} valid AI candidates: ${ytResult.title}`);
     } else {
       // 2. 如果 AI query 沒找到合規的，抓熱門歌清單 (Fallback)
-      const fallbacks = [
-        "華語 流行 歌曲 熱門 Official MV",
-        "2025 New Hits Official MV",
-        "KPOP Billboard New Official MV",
-        "J-POP Viral Hits Official MV",
-        "Classic 80s Rock Official MV",
-        "90s Mandopop Classics Official MV",
-        "EDM Tomorrowland official video",
-        "Disney Music Video Official"
-      ];
+      const fallbacks = ["華語 流行 歌曲 熱門 Official MV", "2025 New Hits Official MV", "KPOP New Official MV"];
       const rQuery = fallbacks[Math.floor(Math.random() * fallbacks.length)];
       console.log(`[AI DJ] AI valid candidates empty. Fallback query: ${rQuery}`);
 
@@ -721,6 +712,19 @@ async function autoAddSong(room, q) {
       }
     }
 
+    // 3. 退無可退，從資料庫撈歷史歌曲
+    if (!ytResult) {
+      const songs = await readSongs(room);
+      const ids = Object.keys(songs);
+      if (ids.length > 0) {
+        const potentialIds = ids.filter(id => !historyIds.includes(id));
+        const rId = potentialIds.length > 0
+          ? potentialIds[Math.floor(Math.random() * potentialIds.length)]
+          : ids[Math.floor(Math.random() * ids.length)];
+        const s = songs[rId];
+        ytResult = { videoId: rId, title: s.title, channel: "系統歷史推薦", thumbnail: s.thumbnail };
+      }
+    }
 
     if (!ytResult) {
       recommendingRooms.delete(room);

@@ -194,6 +194,11 @@
             <input type="text" id="roomInput" placeholder="例如: 7VMEKW">
         </div>
 
+        <div class="input-group">
+            <label for="countInput">加入數量 (每個分類點擊後加入幾首歌)</label>
+            <input type="number" id="countInput" value="5" min="1" max="50">
+        </div>
+
         <div class="preset-grid">
             <div class="preset-card" onclick="addSet('mandopop')">
                 <h3>華語流行經典</h3>
@@ -285,18 +290,28 @@
 
         async function addSet(setName) {
             const room = document.getElementById('roomInput').value;
+            const count = parseInt(document.getElementById('countInput').value) || 1;
+
             if (!room) {
                 alert('請先輸入房間代碼');
                 return;
             }
-            log(`開始批次加入「${setName}」歌單...`, 'info');
-            const songs = presets[setName];
-            for (const song of songs) {
+            log(`開始為房間「${room}」批次加入「${setName}」歌單 (目標數量: ${count})...`, 'info');
+
+            const baseSongs = presets[setName];
+            const songsToSubmit = [];
+
+            // 根據指定數量準備歌單 (若數量大於預設則循環使用)
+            for (let i = 0; i < count; i++) {
+                songsToSubmit.push(baseSongs[i % baseSongs.length]);
+            }
+
+            for (const song of songsToSubmit) {
                 await addSong(song, room);
                 // 稍微延遲避免過快可能觸發的限制
                 await new Promise(r => setTimeout(r, 500));
             }
-            log(`「${setName}」加入完成！`, 'success');
+            log(`「${setName}」共 ${count} 首歌加入完成！`, 'success');
         }
 
         async function addAllPresets() {

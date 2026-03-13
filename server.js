@@ -548,7 +548,7 @@ async function generateAISongQuery(room) {
     Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
+      "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
       {
         headers: {
           Authorization: `Bearer ${hfApiKey}`,

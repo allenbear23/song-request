@@ -472,7 +472,7 @@ async function checkIfInappropriate(text) {
 
   try {
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/unitary/multilingual-toxic-xlm-roberta",
+      "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-hate-latest",
       {
         headers: {
           Authorization: `Bearer ${hfApiKey}`,
@@ -484,7 +484,8 @@ async function checkIfInappropriate(text) {
     );
 
     if (!response.ok) {
-      console.warn('Hugging Face API returned status:', response.status);
+      const errorText = await response.text();
+      console.warn(`Hugging Face API (Toxicity) returned status: ${response.status}. Body: ${errorText}`);
       return false;
     }
 
@@ -548,7 +549,7 @@ async function generateAISongQuery(room) {
     Respond with ONLY the 'Song Name - Artist Name', without any quotes, numbering, or extra text.`;
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+      "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
       {
         headers: {
           Authorization: `Bearer ${hfApiKey}`,
@@ -562,7 +563,10 @@ async function generateAISongQuery(room) {
       }
     );
 
-    if (!response.ok) throw new Error(`HF API Error: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HF API Error: ${response.status}. Body: ${errorText}`);
+    }
     const result = await response.json();
 
     if (Array.isArray(result) && result[0] && result[0].generated_text) {

@@ -553,14 +553,12 @@ async function generateAISongQuery(room) {
 
     console.log(`[AI DJ] Negative constraints for room ${room}: ${uniqueBanned}`);
 
-    // 加入隨機因素 (隨機時間戳或種子)
-    const randomnessFactor = `[Variety ID: ${Math.random().toString(36).substring(7)}]`;
-
-    const prompt = `You are a creative DJ. Based on these songs liked in this room: [${recentSongs}]. 
-    Current mood factor: ${randomnessFactor}.
-    Please suggest ONE highly related but different song. Be creative and surprising!
-    CRITICAL: DO NOT suggest any of these: [${uniqueBanned}]. 
-    If you suggest a song from this list, you fail.
+    const prompt = `You are an adventurous DJ who loves variety. Based on these songs: [${recentSongs}]. 
+    Variety Seed: ${randomnessFactor}.
+    TASK: Suggest ONE new, fresh song that is NOT from the list below. 
+    EXPLORE different artists or genres if possible. We want to avoid boredom!
+    CRITICAL: YOU MUST NOT SUGGEST ANY OF THESE: [${uniqueBanned}]. 
+    If you suggest a song regardless of its artist that is on this list, you will be penalized.
     Respond with ONLY 'Song Name - Artist Name'.`;
 
     const response = await fetch(
@@ -573,7 +571,7 @@ async function generateAISongQuery(room) {
         method: "POST",
         body: JSON.stringify({
           inputs: prompt,
-          parameters: { max_new_tokens: 50, return_full_text: false, temperature: 0.9 }
+          parameters: { max_new_tokens: 50, return_full_text: false, temperature: 1.0 } // 提高溫度增加隨機性
         }),
       }
     );
@@ -658,13 +656,14 @@ async function autoAddSong(room, q) {
       const cleanTitle = rTitle.replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
 
       const repeat = historyIds.includes(rId) ||
-        historyTitles.some(ht => cleanTitle.includes(ht) || ht.includes(cleanTitle)) ||
-        queueTitles.some(qt => cleanTitle.includes(qt) || qt.includes(cleanTitle));
+        historyTitles.includes(cleanTitle) ||
+        queueTitles.includes(cleanTitle);
 
       if (repeat) return false;
 
-      // 檢查是否為 Official MV (包含 Official 且包含 MV/Music Video/Video)
-      const isOfficial = rTitle.includes('official') && (rTitle.includes('mv') || rTitle.includes('music video') || rTitle.includes('video'));
+      // 檢查是否為 Official MV (包含 Official OR 包含 MV/Music Video/Video)
+      // 放寬為 OR，避免標題沒寫 Official 卻是官方版本被擋掉
+      const isOfficial = rTitle.includes('official') || rTitle.includes('mv') || rTitle.includes('music video');
       if (!isOfficial) {
         console.log(`[AI DJ] Skipping non-official video: ${r.title}`);
         return false;
@@ -698,9 +697,19 @@ async function autoAddSong(room, q) {
       const results = await searchYouTubeServerSide(rQuery, false, true);
       const fallbackCandidates = results.filter(isValid);
 
-      ytResult = fallbackCandidates.length > 0
-        ? fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)]
-        : null;
+      if (fallbackCandidates.length > 0) {
+        ytResult = fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
+      } else {
+        // 最後手段：如果強制 MV 都找不到新歌，放寬標準不再檢查 Official (但仍檢查重複與長度)
+        console.log(`[AI DJ] No valid MV found in fallbacks. Relaxing Official constraint...`);
+        ytResult = results.find(r => {
+          const rId = r.videoId;
+          const rTitle = r.title.toLowerCase();
+          const cleanTitle = rTitle.replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+          const isRep = historyIds.includes(rId) || historyTitles.includes(cleanTitle);
+          return !isRep && r.durationSec < 600;
+        });
+      }
     }
 
     // 3. 退無可退，從資料庫撈歷史歌曲

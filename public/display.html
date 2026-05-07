@@ -63,12 +63,20 @@
       justify-content: center;
     }
 
-    #sidebar {
+    #sidepanel {
       flex: 1.05;
       background: #111;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      border-left: 1px solid #222;
+      overflow: hidden;
+    }
+ 
+    #sidebar {
+      flex: 1;
       padding: 18px;
       overflow-y: auto;
-      border-left: 1px solid #222;
     }
 
     .header {
@@ -660,7 +668,7 @@
   <div id="player-container">
     <div id="player"></div>
   </div>
-
+  <div id="sidepanel">
     <div id="nowPlayingSection">
       <div class="header">
         <div><svg class="icon"><use href="#icon-play"></use></svg> 正在播放</div>
@@ -674,6 +682,7 @@
       </div>
       <div id="queueList"></div>
     </div>
+  </div>
 
 
     <!-- 側邊欄底部廣告 -->
@@ -814,13 +823,14 @@
       fetch('/next').then(r => r.json()).then(data => {
         if (data && data.url) {
           const vid = extractVideoId(data.url);
-          if (vid) {
+          if (vid && player && typeof player.loadVideoById === 'function') {
             currentVideoId = vid;
             player.loadVideoById(vid);
           }
         } else {
           // no songs
-          document.getElementById('queueList').innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
+          const qList = document.getElementById('queueList');
+          if (qList) qList.innerHTML = '<div style="color:#888">目前沒有排隊歌曲</div>';
           if (player && typeof player.stopVideo === 'function') {
             player.stopVideo();
           }

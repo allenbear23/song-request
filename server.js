@@ -200,6 +200,36 @@ const writeSongs = (room, s) => writeData('songs', room, s);
 const readHistory = (room) => readData('history', room, []);
 const writeHistory = (room, h) => writeData('history', room, h);
 
+// 輔助函數：將歌曲存入本地資料庫
+async function saveToLocalDatabase(room, items) {
+  try {
+    const songs = await readSongs(room);
+    let changed = false;
+    for (const item of items) {
+      const vId = item.videoId || extractVideoId(item.url || '');
+      if (!vId) continue;
+      if (!songs[vId]) {
+        songs[vId] = { 
+          title: item.title,
+          thumbnail: item.thumbnail,
+          channel: item.channel,
+          url: item.url || `https://www.youtube.com/watch?v=${vId}`,
+          count: 0,
+          addedBy: item.requester ? (item.requester.name || 'AI DJ') : 'AI DJ'
+        };
+        changed = true;
+      }
+      if (item.requester && item.requester.name !== '系統') {
+        songs[vId].count = (songs[vId].count || 0) + 1;
+        changed = true;
+      }
+    }
+    if (changed) await writeSongs(room, songs);
+  } catch (e) {
+    console.error('saveToLocalDatabase error:', e);
+  }
+}
+
 // Record a song into the auto-tracked history, holding max 20 items.
 async function pushToHistory(room, item) {
   if (!item) {
@@ -485,12 +515,13 @@ app.post('/request', async (req, res) => {
     }
 
     // --- 記錄歌曲點播次數 ---
-    const songs = await readSongs(room);
-    if (!songs[videoId]) songs[videoId] = { count: 0 };
-    songs[videoId].title = info.title;
-    songs[videoId].thumbnail = info.thumbnail;
-    songs[videoId].count = (songs[videoId].count || 0) + 1;
-    await writeSongs(room, songs);
+    await saveToLocalDatabase(room, [{
+      videoId: videoId,
+      title: info.title,
+      thumbnail: info.thumbnail,
+      channel: info.channelTitle,
+      requester: { name: user ? user.displayName : '訪客' }
+    }]);
 
     const fullUrl = 'https://www.youtube.com/watch?v=' + videoId;
 
@@ -771,34 +802,39 @@ app.get('/api/recommendations', async (req, res) => {
     const historyIds = new Set([...history, ...queue].map(h => extractVideoId(h.url || '')).filter(Boolean));
 
     let candidates = [];
-    let seedId = currentVideoId;
+    const currentItem = queue[0] || (history.length > 0 ? history[history.length - 1] : null);
+    const seedTitle = currentItem ? currentItem.title : null;
 
-    // Step 1: 用 relatedToVideoId 取得真正相關影片
-    if (seedId) {
-      console.log(`[AI Rec] relatedToVideoId: ${seedId}`);
-      candidates = await fetchRelatedVideos(seedId, 15);
+    // Step 1: 發現相關影片 (搜尋發現模式)
+    if (seedTitle) {
+      console.log(`[AI Rec] Discovering for: ${seedTitle}`);
+      candidates = await fetchRelatedVideos(seedTitle, 15);
     }
 
     // Step 2: 若不夠，補充歷史種子
     if (candidates.length < 5) {
-      const historySeed = await fetchSeedVideoIdFromHistory(room);
-      if (historySeed && historySeed !== seedId) {
-        const extra = await fetchRelatedVideos(historySeed, 10);
+      const historySeedItem = history[Math.floor(Math.random() * history.length)];
+      if (historySeedItem && historySeedItem.title && historySeedItem.title !== seedTitle) {
+        console.log(`[AI Rec] Using history seed title: ${historySeedItem.title}`);
+        const extra = await fetchRelatedVideos(historySeedItem.title, 10);
         candidates = [...candidates, ...extra];
       }
     }
 
     // Step 3: 過濾已播放/時長過長
     const filtered = candidates.filter(c => {
-      if (historyIds.has(c.videoId)) return false;
+      const vId = c.videoId || extractVideoId(c.url || '');
+      if (historyIds.has(vId)) return false;
       if ((c.durationSec || 0) > 600) return false;
       return true;
     });
 
     // Step 4: Gemini 智能排序 + 生成推薦理由
-    const currentSongTitle = history.length > 0 ? (history[history.length - 1].title || '') : '';
-    const ranked = await rankWithGemini(currentSongTitle || '目前播放', filtered, historyTitles);
+    const ranked = await rankWithGemini(seedTitle || '目前播放', filtered, historyTitles);
     const finalResults = ranked.slice(0, 8);
+    
+    // 自動將發現的歌曲存入本地庫存
+    await saveToLocalDatabase(room, finalResults);
 
     recommendCache[room] = { videoId: currentVideoId, results: finalResults, timestamp: Date.now() };
     console.log(`[AI Rec] Returning ${finalResults.length} items for room ${room}`);
@@ -905,6 +941,9 @@ async function autoAddSong(room, q) {
     
     // 取前 8 首
     const finalResults = ranked.slice(0, 8);
+
+    // 自動將 AI 發現的歌曲存入本地資料庫
+    await saveToLocalDatabase(room, finalResults);
 
     for (const res of finalResults) {
       q.push({

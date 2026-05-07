@@ -121,23 +121,86 @@
       margin-left: 10px;
     }
 
-    /* AI 標籤 */
+    /* AI 標籤 - 升級版 */
     .ai-badge {
-      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      background: linear-gradient(135deg, #1a73e8, #9333ea, #db2777);
+      background-size: 200% 200%;
       color: #fff;
       font-size: 10px;
       font-weight: 800;
-      padding: 2px 8px;
+      padding: 2px 10px;
       border-radius: 20px;
       letter-spacing: 0.5px;
       margin-left: 6px;
-      animation: aiPulse 2s ease-in-out infinite;
+      animation: aiPulse 2s ease-in-out infinite, aiShimmer 3s linear infinite;
       display: inline-block;
       vertical-align: middle;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    @keyframes aiShimmer {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
     @keyframes aiPulse {
-      0%, 100% { box-shadow: 0 0 6px rgba(124,58,237,0.6); }
-      50% { box-shadow: 0 0 14px rgba(124,58,237,1); }
+      0%, 100% { box-shadow: 0 0 4px rgba(124,58,237,0.4); transform: scale(1); }
+      50% { box-shadow: 0 0 12px rgba(124,58,237,0.8); transform: scale(1.05); }
+    }
+
+    /* Gemini 動效容器 */
+    .gemini-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: rgba(124, 58, 237, 0.1);
+      border-radius: 12px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      animation: aiFadeIn 0.8s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+    .gemini-container::after {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+      animation: geminiRotate 10s linear infinite;
+    }
+    @keyframes geminiRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes aiFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .gemini-star {
+      width: 24px;
+      height: 24px;
+      position: relative;
+      z-index: 2;
+      filter: drop-shadow(0 0 5px rgba(66, 133, 244, 0.8));
+      animation: starPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes starPulse {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+      50% { transform: scale(1.2) rotate(15deg); opacity: 1; }
+    }
+
+    /* AI 模式下的視訊卡片微調 */
+    .video-card.ai-mode {
+      border-left: 3px solid #7c3aed;
+      background: rgba(26, 26, 46, 0.6);
+      transition: all 0.3s ease;
+    }
+    .video-card.ai-mode:hover {
+      background: rgba(38, 38, 74, 0.8);
+      transform: translateX(5px);
     }
   </style>
   <style>
@@ -738,8 +801,25 @@
         // 判斷是否沒有真實使用者的點歌
         const userQueue = queue.filter(it => it.requester && it.requester.name !== '系統');
         const queueHeader = document.querySelector('#sidebar .header');
+        
         if (userQueue.length === 0) {
-          if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `✨ AI 智慧推薦`;
+          if (queueHeader) {
+            queueHeader.querySelector('div:first-child').innerHTML = `
+              <div class="gemini-container">
+                <svg class="gemini-star" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" fill="url(#geminiGradient)"/>
+                  <defs>
+                    <linearGradient id="geminiGradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOn someUse">
+                      <stop offset="0%" stop-color="#4285F4" />
+                      <stop offset="50%" stop-color="#9B72CB" />
+                      <stop offset="100%" stop-color="#D96570" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span style="background: linear-gradient(90deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">Gemini 智慧推薦模式</span>
+              </div>
+            `;
+          }
         } else {
           if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `<svg class="icon"><use href="#icon-music"></use></svg> 排隊歌單`;
         }
@@ -747,13 +827,13 @@
         queue.forEach((it, idx) => {
           const isSystem = it.requester && it.requester.name === '系統';
           const div = document.createElement('div');
-          div.className = 'video-card' + (idx === 0 ? ' playing' : '');
+          div.className = 'video-card' + (idx === 0 ? ' playing' : '') + (userQueue.length === 0 ? ' ai-mode' : '');
           div.innerHTML = `
         <img class="thumbnail" src="${it.thumbnail}" />
         <div class="info">
           <div class="title">${idx === 0 ? '<svg class="icon icon-sm"><use href="#icon-play"></use></svg> ' : (idx + 1) + '. '}${it.title}</div>
-          <div class="channel">${it.channel || ''} ${isSystem ? '<span class="ai-badge">AI 推薦</span>' : ''}</div>
-          ${it.reason ? `<div style="color:#a78bfa; font-size:11px; margin-top:4px;">✨ ${it.reason}</div>` : ''}
+          <div class="channel">${it.channel || ''} ${isSystem ? '<span class="ai-badge">AI DJ</span>' : ''}</div>
+          ${it.reason ? `<div style="color:#a78bfa; font-size:11px; margin-top:4px; font-weight:600; font-style:italic;">✨ ${it.reason}</div>` : ''}
           ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold; display:flex; align-items:center;"><svg class="icon icon-sm" style="margin:0 4px 0 0;"><use href="#icon-vote"></use></svg> ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
         </div>
         <div class="controls">

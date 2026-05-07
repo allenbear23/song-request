@@ -1,5 +1,6 @@
 // server.js
 const express = require('express');
+const yts = require('yt-search');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // node-fetch@2
@@ -361,9 +362,24 @@ app.get('/search', async (req, res) => {
 
   const room = getRoom(req);
 
-  // 如果 Quota 已耗盡，直接進入本地搜尋模式
+  // 如果 Quota 已耗盡，使用 yt-search 作為終極備援 (無須 API Key)
   if (Date.now() < ytQuotaExceededUntil) {
-    console.log(`[Search] YouTube Quota active. Using local fallback for: ${q}`);
+    console.log(`[Search] YouTube Quota active. Using yt-search scraper fallback for: ${q}`);
+    try {
+      const r = await yts(q);
+      const videos = r.videos.slice(0, 8).map(v => ({
+        videoId: v.videoId,
+        title: `(備援) ${v.title}`,
+        channel: v.author.name,
+        thumbnail: v.thumbnail,
+        publishedAt: v.ago || '未知時間'
+      }));
+      if (videos.length > 0) return res.json(videos);
+    } catch (e) {
+      console.error('yt-search error:', e);
+    }
+    
+    // 如果連 scraper 都失敗，才回傳本地庫存
     const allSongs = await readSongs(room);
     const localResults = Object.values(allSongs)
       .filter(s => s.title.toLowerCase().includes(q.toLowerCase()))
@@ -747,6 +763,23 @@ async function searchYouTubeServerSide(query, enforceOfficial = true, multi = fa
     if (searchData.error && searchData.error.message.includes('quota')) {
       if (rotateYTKey()) {
         return searchYouTubeServerSide(query, enforceOfficial, multi);
+      }
+      
+      // 所有 Key 都爆了，使用 yt-search 終極備援
+      console.log(`[ServerSearch Fallback] Using yt-search for: ${query}`);
+      try {
+        const r = await yts(query);
+        const videos = r.videos.slice(0, multi ? 10 : 1).map(v => ({
+          videoId: v.videoId,
+          title: v.title,
+          channel: v.author.name,
+          thumbnail: v.thumbnail,
+          viewCount: v.views ? v.views.toString() : '0',
+          publishedAt: v.ago || ''
+        }));
+        return multi ? videos : (videos[0] || null);
+      } catch (e) {
+        console.error('yt-search fallback error:', e);
       }
       return multi ? [] : null;
     }

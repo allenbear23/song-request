@@ -530,6 +530,10 @@ async function fetchRelatedVideos(videoId, maxResults = 15) {
     const relUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&relatedToVideoId=${videoId}&maxResults=${maxResults}&key=${YT_API_KEY}`;
     const relRes = await fetch(relUrl);
     const relData = await relRes.json();
+    if (relData.error) {
+      console.error('❌ YouTube API Error (Related):', relData.error.message);
+      return [];
+    }
     if (!relData.items || relData.items.length === 0) return [];
 
     const ids = relData.items.map(it => it.id.videoId).filter(Boolean).join(',');
@@ -791,7 +795,17 @@ async function autoAddSong(room, q) {
       }
     }
 
-    const validCandidates = candidates.filter(isValid);
+    // 策略 3: 若完全沒有種子 (新房間)，使用熱門關鍵字作為起始
+    let validCandidates = candidates.filter(isValid);
+    if (validCandidates.length === 0) {
+      console.log(`[AI DJ] No seed found or invalid seed. Using trending fallback.`);
+      const trends = ["2025 熱門歌曲 Official MV", "華語流行音樂 2025", "Billboard Top Hits 2025"];
+      const randomTrend = trends[Math.floor(Math.random() * trends.length)];
+      const searchResults = await searchYouTubeServerSide(randomTrend, true, true);
+      candidates = searchResults || [];
+      validCandidates = candidates.filter(isValid);
+    }
+
     if (validCandidates.length === 0) {
       console.log(`[AI DJ] No valid candidates found. Exiting.`);
       return;
@@ -799,7 +813,7 @@ async function autoAddSong(room, q) {
 
     // 使用 Gemini 智能排序並產生推薦理由
     const currentSongTitle = currentItem ? currentItem.title : '';
-    const ranked = await rankWithGemini(currentSongTitle || '目前播放', validCandidates, historyTitles);
+    const ranked = await rankWithGemini(currentSongTitle || '熱門推薦', validCandidates, historyTitles);
     
     // 取前 8 首
     const finalResults = ranked.slice(0, 8);

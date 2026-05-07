@@ -120,6 +120,25 @@
     .controls {
       margin-left: 10px;
     }
+
+    /* AI 標籤 */
+    .ai-badge {
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      margin-left: 6px;
+      animation: aiPulse 2s ease-in-out infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes aiPulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(124,58,237,0.6); }
+      50% { box-shadow: 0 0 14px rgba(124,58,237,1); }
+    }
   </style>
   <style>
     /* 投票 Overlay */
@@ -531,6 +550,7 @@
     </div>
     <div id="queueList"></div>
 
+
     <!-- 側邊欄底部廣告 -->
     <div style="margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; text-align: center;">
       <div style="font-size:12px; color:#555; margin-bottom:5px;">AD</div>
@@ -714,14 +734,26 @@
 
         const box = document.getElementById('queueList');
         box.innerHTML = '';
+        
+        // 判斷是否沒有真實使用者的點歌
+        const userQueue = queue.filter(it => it.requester && it.requester.name !== '系統');
+        const queueHeader = document.querySelector('#sidebar .header');
+        if (userQueue.length === 0) {
+          if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `✨ AI 智慧推薦`;
+        } else {
+          if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `<svg class="icon"><use href="#icon-music"></use></svg> 排隊歌單`;
+        }
+
         queue.forEach((it, idx) => {
+          const isSystem = it.requester && it.requester.name === '系統';
           const div = document.createElement('div');
           div.className = 'video-card' + (idx === 0 ? ' playing' : '');
           div.innerHTML = `
         <img class="thumbnail" src="${it.thumbnail}" />
         <div class="info">
           <div class="title">${idx === 0 ? '<svg class="icon icon-sm"><use href="#icon-play"></use></svg> ' : (idx + 1) + '. '}${it.title}</div>
-          <div class="channel">${it.channel || ''}</div>
+          <div class="channel">${it.channel || ''} ${isSystem ? '<span class="ai-badge">AI 推薦</span>' : ''}</div>
+          ${it.reason ? `<div style="color:#a78bfa; font-size:11px; margin-top:4px;">✨ ${it.reason}</div>` : ''}
           ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold; display:flex; align-items:center;"><svg class="icon icon-sm" style="margin:0 4px 0 0;"><use href="#icon-vote"></use></svg> ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
         </div>
         <div class="controls">
@@ -738,19 +770,14 @@
             playVoteSound();
           }
           lastVoteCount = currentVotes;
-          isVoting = true; // 標記目前正在投票
+          isVoting = true;
           overlay.style.display = 'flex';
           document.getElementById('voteStatus').innerText = `${queue[0].votes} / ${voteThreshold}`;
-
           updateVoteTimerUI();
-
-          // 設定 QR Code (使用與右下角相同的連結)
           const mainQr = document.getElementById('qrcode');
-          if (mainQr) {
-            document.getElementById('voteQrImg').src = mainQr.src;
-          }
+          if (mainQr) document.getElementById('voteQrImg').src = mainQr.src;
         } else {
-          isVoting = false; // 標記無投票
+          isVoting = false;
           lastVoteCount = 0;
           overlay.style.display = 'none';
         }

@@ -59,6 +59,49 @@ function getRoom(req) {
 }
 
 const recommendingRooms = new Set();
+let ytQuotaExceededUntil = 0; // 記錄 YouTube Quota 耗盡的時間點
+
+// YouTube API Key 輪替管理
+const ytKeys = (process.env.YT_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+let currentYTKeyIndex = 0;
+const exhaustedKeys = new Set(); // 記錄當天已耗盡的 Key
+
+function getCurrentYTKey() {
+  if (ytKeys.length === 0) return null;
+  return ytKeys[currentYTKeyIndex];
+}
+
+function rotateYTKey() {
+  if (ytKeys.length === 0) return;
+  
+  const currentKey = ytKeys[currentYTKeyIndex];
+  exhaustedKeys.add(currentKey);
+  
+  console.log(`[YT Quota] Key ${currentYTKeyIndex + 1} exhausted. Rotating...`);
+  
+  // 尋找下一個還沒被標記為耗盡的 Key
+  for (let i = 0; i < ytKeys.length; i++) {
+    currentYTKeyIndex = (currentYTKeyIndex + 1) % ytKeys.length;
+    if (!exhaustedKeys.has(ytKeys[currentYTKeyIndex])) {
+      console.log(`[YT Quota] Switched to Key ${currentYTKeyIndex + 1}.`);
+      return true;
+    }
+  }
+  
+  // 如果所有 Key 都試過了
+  console.error('❌ All YouTube API Keys exhausted for today.');
+  ytQuotaExceededUntil = Date.now() + 60 * 60 * 1000;
+  return false;
+}
+
+// 每小時嘗試重置一次耗盡清單 (或者根據需求手動重置)
+setInterval(() => {
+  if (exhaustedKeys.size > 0 && Date.now() > ytQuotaExceededUntil) {
+    console.log('[YT Quota] Resetting exhausted keys list for a new attempt.');
+    exhaustedKeys.clear();
+    ytQuotaExceededUntil = 0;
+  }
+}, 60 * 60 * 1000);
 
 // 權限驗證 (暫時開放，為了讓使用者快速上手)
 const protect = (req, res, next) => next();
@@ -199,8 +242,15 @@ function parseISO8601Duration(duration) {
 // Fetch full video info: title, channel, thumbnail
 async function fetchVideoInfo(videoId, strictMusicOnly = false) {
   try {
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YT_API_KEY}`);
+    const currentKey = getCurrentYTKey();
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${currentKey}`);
     const data = await res.json();
+    if (data.error) {
+      if (data.error.message.includes('quota')) {
+        rotateYTKey();
+      }
+      return { error: 'YouTube API error' };
+    }
     if (data && data.items && data.items.length > 0) {
       const item = data.items[0];
       const snip = item.snippet;
@@ -279,41 +329,54 @@ app.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
 
-  // 本地測試 Bypass 機制 (為了無 API Key 時能測試 UI)
-  if (req.query.bypassLogin === '1') {
-    return res.json([
-      {
-        videoId: "MVD7fhKgGzc",
-        title: "周杰倫最好聽的20首歌曲 | 在雨天聽周杰倫－絕佳的選擇 | Listening to Jay Chou on a rainy day - An excellent choice",
-        channel: "杰威爾歌詞MV頻道JVR Lyric MV",
-        thumbnail: "https://i.ytimg.com/vi/MVD7fhKgGzc/hqdefault.jpg",
-        viewCount: "35400000",
-        publishedAt: "2018-05-15T00:00:00Z"
-      },
-      {
-        videoId: "dQw4w9WgXcQ",
-        title: "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
-        channel: "Rick Astley",
-        thumbnail: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
-        viewCount: "1350000000",
-        publishedAt: "2009-10-25T00:00:00Z"
-      },
-      {
-        videoId: "HmFhhfF68OU",
-        title: "劉大壯 - 最【動態歌詞】「最最最 難忘回憶是與你 最最最 最後一吻的距離」♪",
-        channel: "Angelic Music World",
-        thumbnail: "https://i.ytimg.com/vi/HmFhhfF68OU/hqdefault.jpg",
-        viewCount: "8500",
-        publishedAt: "2023-11-20T00:00:00Z"
-      }
-    ]);
+  const room = getRoom(req);
+
+  // 如果 Quota 已耗盡，直接進入本地搜尋模式
+  if (Date.now() < ytQuotaExceededUntil) {
+    console.log(`[Search] YouTube Quota active. Using local fallback for: ${q}`);
+    const allSongs = await readSongs(room);
+    const localResults = Object.values(allSongs)
+      .filter(s => s.title.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 8)
+      .map(s => ({
+        videoId: extractVideoId(s.url || ''),
+        title: `(本地庫存) ${s.title}`,
+        channel: s.channel || '先前播放過',
+        thumbnail: s.thumbnail,
+        publishedAt: new Date().toISOString()
+      }));
+    return res.json(localResults);
   }
 
   try {
     // 1. 先用 search API 取得影片清單
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`;
+    const currentKey = getCurrentYTKey();
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q)}&key=${currentKey}`;
     const searchRes = await fetch(searchUrl);
     const searchData = await searchRes.json();
+
+    if (searchData.error) {
+      if (searchData.error.message.includes('quota')) {
+        if (rotateYTKey()) {
+           return res.redirect(`/api/search?q=${req.query.q}&room=${req.query.room}`);
+        }
+      }
+      
+      // Fallback: 搜尋本地已存在的歌單
+      console.log(`[Search Fallback] Searching local library for: ${q}`);
+      const allSongs = await readSongs(room);
+      const localResults = Object.values(allSongs)
+        .filter(s => s.title.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 8)
+        .map(s => ({
+          videoId: extractVideoId(s.url || ''),
+          title: `(本地) ${s.title}`,
+          channel: s.channel || '已播放過',
+          thumbnail: s.thumbnail,
+          publishedAt: new Date().toISOString()
+        }));
+      return res.json(localResults);
+    }
 
     if (!searchData.items || searchData.items.length === 0) return res.json([]);
 
@@ -523,19 +586,20 @@ async function checkIfInappropriate(text) {
 // 真正的 AI 推薦核心函數
 // ================================================================
 
-// 用影片標題關鍵字搜尋相關影片 (因 YouTube 官方已停用 relatedToVideoId API)
+// 用影片標題關鍵字搜尋相關影片 (含 Quota 檢查)
 async function fetchRelatedVideos(seedTitle, maxResults = 15) {
   if (!seedTitle || !YT_API_KEY) return [];
+  if (Date.now() < ytQuotaExceededUntil) {
+    console.warn('[AI Discovery] YouTube Quota exceeded. Skipping API call.');
+    return [];
+  }
+
   try {
-    // 過濾標題中的特殊符號，增加搜尋準確度
     const cleanTitle = seedTitle.replace(/[\[\]\(\)\-\|]/g, ' ').trim();
     console.log(`[AI Discovery] Searching for similar content: ${cleanTitle}`);
     
-    // 使用 searchYouTubeServerSide 輔助函數
     const searchResults = await searchYouTubeServerSide(cleanTitle, false, true);
-    if (!searchResults || searchResults.length === 0) return [];
-
-    return searchResults.slice(0, maxResults);
+    return searchResults ? searchResults.slice(0, maxResults) : [];
   } catch (e) {
     console.error('fetchRelatedVideos error:', e);
     return [];
@@ -641,11 +705,20 @@ ${candidateList}
 // 供伺服器端自己搜尋 YouTube 使用的 helper
 // 返回多個結果供比對，或是返回單一結果
 async function searchYouTubeServerSide(query, enforceOfficial = true, multi = false) {
+  if (Date.now() < ytQuotaExceededUntil) return multi ? [] : null;
   try {
+    const currentKey = getCurrentYTKey();
     const exactQuery = enforceOfficial ? query + " Official Music Video" : query;
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(exactQuery)}&key=${YT_API_KEY}`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(exactQuery)}&key=${currentKey}`;
     const searchRes = await fetch(searchUrl);
     const searchData = await searchRes.json();
+    
+    if (searchData.error && searchData.error.message.includes('quota')) {
+      if (rotateYTKey()) {
+        return searchYouTubeServerSide(query, enforceOfficial, multi);
+      }
+      return multi ? [] : null;
+    }
 
     if (!searchData.items || searchData.items.length === 0) return multi ? [] : null;
 
@@ -802,7 +875,27 @@ async function autoAddSong(room, q) {
     }
 
     if (validCandidates.length === 0) {
-      console.log(`[AI DJ] No valid candidates found. Exiting.`);
+      console.log(`[AI DJ] YouTube API unavailable (Quota/Error). Using local history fallback.`);
+      const allSongs = await readSongs(room);
+      const songPool = Object.values(allSongs).filter(s => !allBlockedIds.has(extractVideoId(s.url || '')));
+      
+      // 隨機挑選 8 首
+      const fallbackResults = songPool.sort(() => 0.5 - Math.random()).slice(0, 8);
+      for (const s of fallbackResults) {
+        q.push({
+          url: s.url,
+          title: s.title,
+          channel: s.channel || '本地收藏',
+          thumbnail: s.thumbnail,
+          requester: { name: '系統' },
+          reason: '根據您的聽歌歷史推薦',
+          aiPicked: false,
+          votes: 0,
+          votedIds: []
+        });
+      }
+      await writeQueue(room, q);
+      console.log(`[AI DJ] Auto-queued ${fallbackResults.length} local songs.`);
       return;
     }
 

@@ -523,41 +523,19 @@ async function checkIfInappropriate(text) {
 // 真正的 AI 推薦核心函數
 // ================================================================
 
-// 用 YouTube relatedToVideoId 取得與指定影片真正相關的影片
-async function fetchRelatedVideos(videoId, maxResults = 15) {
-  if (!videoId || !YT_API_KEY) return [];
+// 用影片標題關鍵字搜尋相關影片 (因 YouTube 官方已停用 relatedToVideoId API)
+async function fetchRelatedVideos(seedTitle, maxResults = 15) {
+  if (!seedTitle || !YT_API_KEY) return [];
   try {
-    const relUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&relatedToVideoId=${videoId}&maxResults=${maxResults}&key=${YT_API_KEY}`;
-    const relRes = await fetch(relUrl);
-    const relData = await relRes.json();
-    if (relData.error) {
-      console.error('❌ YouTube API Error (Related):', relData.error.message);
-      return [];
-    }
-    if (!relData.items || relData.items.length === 0) return [];
+    // 過濾標題中的特殊符號，增加搜尋準確度
+    const cleanTitle = seedTitle.replace(/[\[\]\(\)\-\|]/g, ' ').trim();
+    console.log(`[AI Discovery] Searching for similar content: ${cleanTitle}`);
+    
+    // 使用 searchYouTubeServerSide 輔助函數
+    const searchResults = await searchYouTubeServerSide(cleanTitle, false, true);
+    if (!searchResults || searchResults.length === 0) return [];
 
-    const ids = relData.items.map(it => it.id.videoId).filter(Boolean).join(',');
-    if (!ids) return [];
-    const detailUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${ids}&key=${YT_API_KEY}`;
-    const detailRes = await fetch(detailUrl);
-    const detailData = await detailRes.json();
-    if (!detailData.items) return [];
-
-    return detailData.items
-      .filter(it => {
-        const rating = it.contentDetails && it.contentDetails.contentRating;
-        return !(rating && rating.ytRating === 'ytAgeRestricted');
-      })
-      .map(it => ({
-        videoId: it.id,
-        title: it.snippet.title,
-        channel: it.snippet.channelTitle,
-        thumbnail: (it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default) || {}).url,
-        viewCount: parseInt(it.statistics.viewCount || '0'),
-        likeCount: parseInt(it.statistics.likeCount || '0'),
-        durationSec: parseISO8601Duration(it.contentDetails.duration || 'PT0S'),
-        publishedAt: it.snippet.publishedAt
-      }));
+    return searchResults.slice(0, maxResults);
   } catch (e) {
     console.error('fetchRelatedVideos error:', e);
     return [];
@@ -620,6 +598,13 @@ ${candidateList}
         })
       }
     );
+
+    // 如果遇到 429 (Too Many Requests)，嘗試等待後重試一次
+    if (geminiRes.status === 429) {
+      console.warn('[Gemini] Rate limit hit (429). Retrying in 2 seconds...');
+      await new Promise(r => setTimeout(r, 2000));
+      return rankWithGemini(currentSongTitle, candidates, historyTitles);
+    }
 
     if (!geminiRes.ok) {
       console.warn('[Gemini] API error:', geminiRes.status);
@@ -751,13 +736,23 @@ app.get('/api/recommendations', async (req, res) => {
   }
 });
 
-// 自動加入推薦歌曲 (升級版：直接寫入多首真正的 YouTube 推薦 + Gemini 排序)
+// 自動加入推薦歌曲 (升級版：改用搜尋發現 + Gemini 排序)
+const lastRecommendationTime = new Map(); // { room: timestamp }
+
 async function autoAddSong(room, q) {
+  // 檢查冷卻時間 (30 秒)，避免頻繁呼叫 Gemini API
+  const now = Date.now();
+  const lastTime = lastRecommendationTime.get(room) || 0;
+  if (now - lastTime < 30 * 1000) {
+    return;
+  }
+
   if (recommendingRooms.has(room)) {
     console.log(`[AI DJ] Recommendation already in progress for room ${room}. Skipping.`);
     return;
   }
   recommendingRooms.add(room);
+  lastRecommendationTime.set(room, now);
 
   try {
     const history = await readHistory(room);
@@ -777,20 +772,20 @@ async function autoAddSong(room, q) {
 
     let candidates = [];
     const currentItem = q[0] || history[history.length - 1];
-    const seedVideoId = currentItem ? extractVideoId(currentItem.url || '') : null;
+    const seedTitle = currentItem ? currentItem.title : null;
 
-    // 策略 1: 用目前播放歌曲的 relatedToVideoId (最準確)
-    if (seedVideoId) {
-      console.log(`[AI DJ] Fetching related videos for seed: ${seedVideoId}`);
-      candidates = await fetchRelatedVideos(seedVideoId, 15);
+    // 策略 1: 用目前播放歌曲標題進行相關搜尋
+    if (seedTitle) {
+      console.log(`[AI DJ] Discovering content similar to: ${seedTitle}`);
+      candidates = await fetchRelatedVideos(seedTitle, 15);
     }
 
-    // 策略 2: 從歷史隨機選一首當種子
+    // 策略 2: 從歷史隨機選一首標題作為搜尋種子
     if (candidates.filter(isValid).length < 5) {
-      const historySeed = await fetchSeedVideoIdFromHistory(room);
-      if (historySeed && historySeed !== seedVideoId) {
-        console.log(`[AI DJ] Fetching history seed: ${historySeed}`);
-        const extra = await fetchRelatedVideos(historySeed, 10);
+      const historySeedItem = history[Math.floor(Math.random() * history.length)];
+      if (historySeedItem && historySeedItem.title && historySeedItem.title !== seedTitle) {
+        console.log(`[AI DJ] Using history seed title: ${historySeedItem.title}`);
+        const extra = await fetchRelatedVideos(historySeedItem.title, 10);
         candidates = [...candidates, ...extra];
       }
     }
@@ -840,6 +835,26 @@ async function autoAddSong(room, q) {
     recommendingRooms.delete(room);
   }
 }
+
+// 跳轉至指定歌曲 (插播)
+app.post('/api/jump', async (req, res) => {
+  const room = getRoom(req);
+  const { index } = req.body;
+  const q = await readQueue(room);
+  
+  if (index > 0 && index < q.length) {
+    const target = q.splice(index, 1)[0];
+    // 將跳轉的歌曲移到 index 0 (正在播放)，原本正在播放的歌曲會被替換 (或是您可以選擇保留它，但這裡我們遵循"切歌"邏輯)
+    q.shift();
+    q.unshift(target);
+    await writeQueue(room, q);
+    
+    // 通知所有客戶端立即更新 (這會觸發播放器的 checkNext)
+    io.to(room).emit('refresh');
+    return res.json({ success: true });
+  }
+  res.status(400).json({ error: 'Invalid index' });
+});
 
 // Get next (first) item
 app.get('/next', async (req, res) => {

@@ -147,7 +147,64 @@
       50% { box-shadow: 0 0 12px rgba(124,58,237,0.8); transform: scale(1.05); }
     }
 
-    /* Gemini 動效容器 */
+    /* Now Playing 區塊 */
+    #nowPlayingSection {
+      margin-bottom: 20px;
+    }
+    #nowPlayingCard {
+      background: linear-gradient(135deg, #1e1e3f, #111122);
+      border: 1px solid #333;
+      border-radius: 15px;
+      padding: 15px;
+      display: flex;
+      gap: 15px;
+      animation: aiFadeIn 0.8s ease-out;
+    }
+    #nowPlayingCard .thumbnail {
+      width: 160px;
+      height: 90px;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+    #nowPlayingCard .info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    #nowPlayingCard .title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 5px;
+    }
+
+    /* 側邊欄與點擊效能 */
+    .video-card.up-next {
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .video-card.up-next:hover {
+      transform: scale(1.03) translateX(10px);
+      background: rgba(124, 58, 237, 0.2);
+      border-color: #7c3aed;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .video-card.up-next:active {
+      transform: scale(0.98);
+    }
+    .click-hint {
+      position: absolute;
+      right: 15px;
+      bottom: 10px;
+      font-size: 10px;
+      color: #7c3aed;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .video-card.up-next:hover .click-hint {
+      opacity: 1;
+    }
     .gemini-container {
       display: flex;
       align-items: center;
@@ -604,14 +661,19 @@
     <div id="player"></div>
   </div>
 
-  <div id="sidebar">
-    <div class="header">
-      <div><svg class="icon">
-          <use href="#icon-music"></use>
-        </svg> 排隊歌單</div>
-      <div style="font-size:12px;color:#aaa">自動更新</div>
+    <div id="nowPlayingSection">
+      <div class="header">
+        <div><svg class="icon"><use href="#icon-play"></use></svg> 正在播放</div>
+      </div>
+      <div id="nowPlayingCard"></div>
     </div>
-    <div id="queueList"></div>
+
+    <div id="sidebar" class="sidebar">
+      <div class="header">
+        <div><svg class="icon"><use href="#icon-music"></use></svg> 排隊歌單</div>
+      </div>
+      <div id="queueList"></div>
+    </div>
 
 
     <!-- 側邊欄底部廣告 -->
@@ -796,49 +858,79 @@
         }
 
         const box = document.getElementById('queueList');
+        const nowPlayingBox = document.getElementById('nowPlayingCard');
         box.innerHTML = '';
+        nowPlayingBox.innerHTML = '';
         
-        // 判斷是否沒有真實使用者的點歌
-        const userQueue = queue.filter(it => it.requester && it.requester.name !== '系統');
+        if (queue.length === 0) {
+          nowPlayingBox.innerHTML = '<div style="color:#555; padding:20px;">目前沒有播放中的歌曲</div>';
+          return;
+        }
+
+        // 渲染正在播放
+        const current = queue[0];
+        const isCurrentSystem = current.requester && current.requester.name === '系統';
+        nowPlayingBox.innerHTML = `
+          <img class="thumbnail" src="${current.thumbnail}" />
+          <div class="info">
+            <div class="title">${current.title}</div>
+            <div class="channel">${current.channel || ''} ${isCurrentSystem ? '<span class="ai-badge">AI DJ</span>' : ''}</div>
+            ${current.reason ? `<div style="color:#a78bfa; font-size:11px; margin-top:4px; font-weight:600;">✨ ${current.reason}</div>` : ''}
+            ${current.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:8px; font-weight:bold;"><svg class="icon icon-sm"><use href="#icon-vote"></use></svg> ${current.votes}/${voteThreshold} 票切歌</div>` : ''}
+          </div>
+        `;
+
+        // 判斷是否沒有真實使用者的點歌 (用於標題顯示)
+        const userQueue = queue.slice(1).filter(it => it.requester && it.requester.name !== '系統');
         const queueHeader = document.querySelector('#sidebar .header');
         
-        if (userQueue.length === 0) {
+        if (userQueue.length === 0 && queue.length > 1) {
           if (queueHeader) {
             queueHeader.querySelector('div:first-child').innerHTML = `
               <div class="gemini-container">
                 <svg class="gemini-star" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" fill="url(#geminiGradient)"/>
                   <defs>
-                    <linearGradient id="geminiGradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOn someUse">
+                    <linearGradient id="geminiGradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
                       <stop offset="0%" stop-color="#4285F4" />
                       <stop offset="50%" stop-color="#9B72CB" />
                       <stop offset="100%" stop-color="#D96570" />
                     </linearGradient>
                   </defs>
                 </svg>
-                <span style="background: linear-gradient(90deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">Gemini 智慧推薦模式</span>
+                <span style="background: linear-gradient(90deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">Gemini 智慧推薦 (點擊即刻播放)</span>
               </div>
             `;
           }
         } else {
-          if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `<svg class="icon"><use href="#icon-music"></use></svg> 排隊歌單`;
+          if (queueHeader) queueHeader.querySelector('div:first-child').innerHTML = `<svg class="icon"><use href="#icon-music"></use></svg> 待播清單`;
         }
 
+        // 渲染接下來播放
         queue.forEach((it, idx) => {
+          if (idx === 0) return; // 跳過正在播放
           const isSystem = it.requester && it.requester.name === '系統';
           const div = document.createElement('div');
-          div.className = 'video-card' + (idx === 0 ? ' playing' : '') + (userQueue.length === 0 ? ' ai-mode' : '');
+          div.className = 'video-card up-next' + (userQueue.length === 0 ? ' ai-mode' : '');
           div.innerHTML = `
         <img class="thumbnail" src="${it.thumbnail}" />
         <div class="info">
-          <div class="title">${idx === 0 ? '<svg class="icon icon-sm"><use href="#icon-play"></use></svg> ' : (idx + 1) + '. '}${it.title}</div>
+          <div class="title">${idx}. ${it.title}</div>
           <div class="channel">${it.channel || ''} ${isSystem ? '<span class="ai-badge">AI DJ</span>' : ''}</div>
           ${it.reason ? `<div style="color:#a78bfa; font-size:11px; margin-top:4px; font-weight:600; font-style:italic;">✨ ${it.reason}</div>` : ''}
-          ${idx === 0 && it.votes ? `<div style="color:#ff4444; font-size:12px; margin-top:4px; font-weight:bold; display:flex; align-items:center;"><svg class="icon icon-sm" style="margin:0 4px 0 0;"><use href="#icon-vote"></use></svg> ${it.votes}/${voteThreshold} 票切歌</div>` : ''}
-        </div>
-        <div class="controls">
+          <div class="click-hint">🖱️ 點擊插播</div>
         </div>
       `;
+          
+          // 點擊事件：跳轉播放
+          div.addEventListener('click', () => {
+            fetch('/api/jump', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ index: idx, room: new URLSearchParams(window.location.search).get('room') })
+            }).catch(err => console.error('Jump error:', err));
+          });
+
           box.appendChild(div);
         });
 

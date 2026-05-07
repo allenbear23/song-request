@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: song-request-ai
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: YT_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RECAPTCHA_SITE_KEY
+        sync: false
+      - key: RECAPTCHA_SECRET
+        sync: false
+      - key: LIFF_ID
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: HF_API_KEY
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          name: song-request-ai
+          type: web
+          property: host

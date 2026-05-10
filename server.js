@@ -404,7 +404,7 @@ app.get('/search', async (req, res) => {
     if (searchData.error) {
       if (searchData.error.message.includes('quota')) {
         if (rotateYTKey()) {
-           return res.redirect(`/api/search?q=${req.query.q}&room=${req.query.room}`);
+           return res.redirect(`/search?q=${encodeURIComponent(q)}&room=${encodeURIComponent(req.query.room || 'default')}`);
         }
       }
       
@@ -428,7 +428,7 @@ app.get('/search', async (req, res) => {
 
     // 2. 收集所有 videoId，再呼叫 videos API 取得統計資料 (包含觀看次數 snippet 包含發布時間)
     const videoIds = searchData.items.map(it => it.id.videoId).join(',');
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${YT_API_KEY}`;
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${currentKey}`;
     const videosRes = await fetch(videosUrl);
     const videosData = await videosRes.json();
 
@@ -787,7 +787,7 @@ async function searchYouTubeServerSide(query, enforceOfficial = true, multi = fa
     if (!searchData.items || searchData.items.length === 0) return multi ? [] : null;
 
     const videoIds = searchData.items.map(it => it.id.videoId).join(',');
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${YT_API_KEY}`;
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}&key=${currentKey}`;
     const videosRes = await fetch(videosUrl);
     const videosData = await videosRes.json();
 

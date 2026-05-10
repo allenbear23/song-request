@@ -677,7 +677,7 @@ async function fetchSeedVideoIdFromHistory(room) {
 }
 
 // 用 Gemini AI 對候選影片智能排序，並生成中文推薦理由
-async function rankWithGemini(currentSongTitle, candidates, historyTitles) {
+async function rankWithGemini(currentSongTitle, candidates, historyTitles, retryCount = 0) {
   if (!GEMINI_API_KEY || candidates.length === 0) {
     return candidates.map(c => ({ ...c, reason: '根據您的收聽習慣推薦', aiPicked: false }));
   }
@@ -710,11 +710,15 @@ ${candidateList}
       }
     );
 
-    // 如果遇到 429 (Too Many Requests)，嘗試等待後重試一次
+    // 如果遇到 429 (Too Many Requests)，嘗試等待後重試一次 (最多重試 3 次)
     if (geminiRes.status === 429) {
-      console.warn('[Gemini] Rate limit hit (429). Retrying in 2 seconds...');
+      if (retryCount >= 3) {
+        console.warn('[Gemini] Rate limit hit too many times (429). Falling back to default sorting.');
+        return candidates.map(c => ({ ...c, reason: '為您智能推薦', aiPicked: false }));
+      }
+      console.warn(`[Gemini] Rate limit hit (429). Retrying in 2 seconds... (Attempt ${retryCount + 1}/3)`);
       await new Promise(r => setTimeout(r, 2000));
-      return rankWithGemini(currentSongTitle, candidates, historyTitles);
+      return rankWithGemini(currentSongTitle, candidates, historyTitles, retryCount + 1);
     }
 
     if (!geminiRes.ok) {

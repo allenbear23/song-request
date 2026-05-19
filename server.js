@@ -637,23 +637,80 @@ async function checkIfInappropriate(text) {
 // 真正的 AI 推薦核心函數
 // ================================================================
 
-// 輔助函數：過濾掉非音樂或新聞報導相關的影片
-function isMusicOnly(title, channel) {
+// 輔助函數：標準化歌名用於防重複比較
+function normalizeTitle(title) {
+  if (!title) return '';
+  return title.toLowerCase()
+    .replace(/official\s+music\s+video/gi, '')
+    .replace(/official\s+mv/gi, '')
+    .replace(/music\s+video/gi, '')
+    .replace(/官方完整版/g, '')
+    .replace(/官方/g, '')
+    .replace(/mv/gi, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '') // 只保留英數字和中文字
+    .trim();
+}
+
+// 輔助函數：模糊重複歌名檢查 (防各種翻唱、不同版本重複上架)
+function isDuplicateTitle(candidateTitle, historyTitles) {
+  const normCand = normalizeTitle(candidateTitle);
+  if (!normCand) return true;
+  
+  for (const histTitle of historyTitles) {
+    const normHist = normalizeTitle(histTitle);
+    if (!normHist) continue;
+    
+    // 如果一個是另一個的子字串，代表極可能是重複歌曲 (如 "告白氣球" 與 "周杰倫 - 告白氣球")
+    if (normCand.includes(normHist) || normHist.includes(normCand)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// 輔助函數：過濾掉非官方、Cover 翻唱、現場版、新聞等影片，只保留官方 MV
+function isOfficialMV(title, channel) {
   const t = (title || '').toLowerCase();
   const c = (channel || '').toLowerCase();
   
-  // 非音樂的黑名單關鍵字
+  // 1. 排除非音樂/新聞黑名單
   const blacklist = [
     '新聞', '直播', 'live', '即時', '報導', '政論', '三立', 'tvbs', '東森', '中天', 
     '民視', '年代', '非凡', '壹電視', '中視', '台視', '華視', '精華', '談話', 'podcast', 
     '訪談', '訪談節目', '記者會', '大現場', '新聞網', '新聞台'
   ];
-  
   for (const word of blacklist) {
-    if (t.includes(word) || c.includes(word)) {
-      return false;
-    }
+    if (t.includes(word) || c.includes(word)) return false;
   }
+  
+  // 2. 排除非官方/翻唱/非純 MV 關鍵字
+  const unofficialKeywords = [
+    'cover', '翻唱', 'lyrics', '歌詞', 'remix', 'live', '現場', '演奏', '純音樂', 
+    'instrumental', 'fanmade', 'fan-made', '混音', '慢速', '加速', 'speed up', 'slowed',
+    '翻唱版', '現場版', '演唱會', 'concert', 'fancam', '直拍', '1hour', '1小時', 
+    '循環', '重播', '合集', '歌單', 'playlist', '反應', 'reaction', '解析', '評論',
+    '教學', 'tutorial', '伴奏', 'karaoke', '卡拉ok'
+  ];
+  for (const word of unofficialKeywords) {
+    if (t.includes(word)) return false;
+  }
+  
+  // 3. 必須包含官方 MV 指標字眼，或者頻道是官方發行/唱片公司頻道
+  const officialKeywords = [
+    'mv', 'music video', '官方', 'official', '完整版', '主打', '首播', '原聲帶', 'ost'
+  ];
+  const officialChannels = [
+    'official', 'vevo', 'music', 'records', '唱片', '娛樂', '公司', '音樂', '工作室', 'studio'
+  ];
+  
+  const hasOfficialTitle = officialKeywords.some(word => t.includes(word));
+  const hasOfficialChannel = officialChannels.some(word => c.includes(word));
+  
+  // 若兩者皆無，則視為非官方影片
+  if (!hasOfficialTitle && !hasOfficialChannel) {
+    return false;
+  }
+  
   return true;
 }
 
@@ -886,14 +943,28 @@ app.get('/api/recommendations', async (req, res) => {
       }
     }
 
-    // Step 3: 過濾已播放/時長過長/非音樂影片
-    const filtered = candidates.filter(c => {
+    // Step 3: 過濾已播放/時長過長/非官方/重複歌名影片
+    const filtered = [];
+    const seenTitles = new Set();
+    
+    for (const c of candidates) {
       const vId = c.videoId || extractVideoId(c.url || '');
-      if (historyIds.has(vId)) return false;
-      if ((c.durationSec || 0) > 600) return false;
-      if (!isMusicOnly(c.title, c.channel)) return false;
-      return true;
-    });
+      if (historyIds.has(vId)) continue;
+      if ((c.durationSec || 0) > 600) continue;
+      
+      // 檢查是否為官方 MV
+      if (!isOfficialMV(c.title, c.channel)) continue;
+      
+      // 檢查是否與 queue/history 中的歌重複
+      if (isDuplicateTitle(c.title, historyTitles)) continue;
+      
+      // 檢查是否在本次推薦名單中重複
+      const norm = normalizeTitle(c.title);
+      if (seenTitles.has(norm)) continue;
+      seenTitles.add(norm);
+      
+      filtered.push(c);
+    }
 
     // Step 4: Gemini 智能排序 + 生成推薦理由
     const ranked = await rankWithGemini(seedTitle || '目前播放', filtered, historyTitles);
@@ -934,15 +1005,25 @@ async function autoAddSong(room, q) {
     const historyIds = history.map(h => extractVideoId(h.url || '')).filter(Boolean);
     const queueIds = q.map(item => extractVideoId(item.url || '')).filter(Boolean);
     const allBlockedIds = new Set([...historyIds, ...queueIds]);
-    const historyTitles = [...history, ...q].map(h => (h.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, ''));
+    const historyTitles = [...history, ...q].map(h => h.title || '').filter(Boolean);
 
+    const seenTitles = new Set();
     const isValid = (r) => {
       if (!r || !r.videoId) return false;
       if (allBlockedIds.has(r.videoId)) return false;
-      const cleanTitle = (r.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
-      if (historyTitles.includes(cleanTitle)) return false;
+      
+      // 檢查是否為官方 MV
+      if (!isOfficialMV(r.title, r.channel)) return false;
+      
+      // 檢查是否與 queue/history 中的歌重複
+      if (isDuplicateTitle(r.title, historyTitles)) return false;
+      
+      // 檢查是否在本次處理中重複
+      const norm = normalizeTitle(r.title);
+      if (seenTitles.has(norm)) return false;
+      seenTitles.add(norm);
+      
       if ((r.durationSec || 0) > 600) return false;
-      if (!isMusicOnly(r.title, r.channel)) return false;
       return true;
     };
 

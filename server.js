@@ -637,6 +637,26 @@ async function checkIfInappropriate(text) {
 // 真正的 AI 推薦核心函數
 // ================================================================
 
+// 輔助函數：過濾掉非音樂或新聞報導相關的影片
+function isMusicOnly(title, channel) {
+  const t = (title || '').toLowerCase();
+  const c = (channel || '').toLowerCase();
+  
+  // 非音樂的黑名單關鍵字
+  const blacklist = [
+    '新聞', '直播', 'live', '即時', '報導', '政論', '三立', 'tvbs', '東森', '中天', 
+    '民視', '年代', '非凡', '壹電視', '中視', '台視', '華視', '精華', '談話', 'podcast', 
+    '訪談', '訪談節目', '記者會', '大現場', '新聞網', '新聞台'
+  ];
+  
+  for (const word of blacklist) {
+    if (t.includes(word) || c.includes(word)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // 用影片標題關鍵字搜尋相關影片 (含 Quota 檢查)
 async function fetchRelatedVideos(seedTitle, maxResults = 15) {
   if (!seedTitle || !YT_API_KEY) return [];
@@ -649,7 +669,8 @@ async function fetchRelatedVideos(seedTitle, maxResults = 15) {
     const cleanTitle = seedTitle.replace(/[\[\]\(\)\-\|]/g, ' ').trim();
     console.log(`[AI Discovery] Searching for similar content: ${cleanTitle}`);
     
-    const searchResults = await searchYouTubeServerSide(cleanTitle, false, true);
+    // 將 enforceOfficial 設為 true，強制推薦官方 MV
+    const searchResults = await searchYouTubeServerSide(cleanTitle, true, true);
     return searchResults ? searchResults.slice(0, maxResults) : [];
   } catch (e) {
     console.error('fetchRelatedVideos error:', e);
@@ -691,11 +712,14 @@ async function rankWithGemini(currentSongTitle, candidates, historyTitles, retry
     ).join('\n');
     const historyContext = historyTitles.slice(-8).join('、') || '無';
 
-    const prompt = `你是一個專業的音樂 DJ 助理，請幫我從以下候選歌曲中挑選最適合接在「${currentSongTitle || '目前播放歌曲'}」後面播放的 5 首歌，並用一句話說明推薦理由（中文，15字以內）。
+    const prompt = `你是一個專業的音樂 DJ 助理。請注意：我們**只允許推薦音樂、歌曲、或官方 MV**！
+嚴格禁止推薦任何新聞報導、政論節目、談話節目、Podcast、生活 VLOG、直播剪輯或非音樂類型的影片（例如包含「新聞」、「LIVE大現場」、「直播」、「政論」、「政論節目」等字眼的候選影片一律不能推薦）。
+
+請幫我從以下候選名單中，篩選並挑選出最適合接在「${currentSongTitle || '目前播放歌曲'}」後面播放的 5 首**音樂/歌曲/MV**，並用一句話說明推薦理由（中文，15字以內）。
 
 最近播過的歌曲（請避免重複）：${historyContext}
 
-候選歌曲：
+候選影片名單：
 ${candidateList}
 
 請只回傳 JSON 格式，範例：
@@ -862,11 +886,12 @@ app.get('/api/recommendations', async (req, res) => {
       }
     }
 
-    // Step 3: 過濾已播放/時長過長
+    // Step 3: 過濾已播放/時長過長/非音樂影片
     const filtered = candidates.filter(c => {
       const vId = c.videoId || extractVideoId(c.url || '');
       if (historyIds.has(vId)) return false;
       if ((c.durationSec || 0) > 600) return false;
+      if (!isMusicOnly(c.title, c.channel)) return false;
       return true;
     });
 
@@ -917,6 +942,7 @@ async function autoAddSong(room, q) {
       const cleanTitle = (r.title || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
       if (historyTitles.includes(cleanTitle)) return false;
       if ((r.durationSec || 0) > 600) return false;
+      if (!isMusicOnly(r.title, r.channel)) return false;
       return true;
     };
 

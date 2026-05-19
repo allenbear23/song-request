@@ -465,11 +465,6 @@ app.post('/request', async (req, res) => {
     const { url, token, user } = req.body;
     const room = getRoom(req);
 
-    // 驗證 token 是否送來
-    if (!token) {
-      return res.status(400).json({ error: 'reCAPTCHA token missing' });
-    }
-
     // 檢查使用者是否被停權
     if (user && user.userId) {
       const users = await readUsers(room);
@@ -479,22 +474,31 @@ app.post('/request', async (req, res) => {
       }
     }
 
-    // call Google verify API
-    const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
-    const params = new URLSearchParams();
-    params.append('secret', RECAPTCHA_SECRET);
-    params.append('response', token);
+    // 驗證 token 是否送來 (如果 token 是 'bypass_recaptcha' 且未設定 RECAPTCHA_SECRET，則 Bypass)
+    const isBypass = token === 'bypass_recaptcha' || !RECAPTCHA_SECRET;
 
-    const verifyRes = await fetch(verifyUrl, { method: 'POST', body: params });
-    const verifyJson = await verifyRes.json();
+    if (!isBypass) {
+      if (!token) {
+        return res.status(400).json({ error: 'reCAPTCHA token missing' });
+      }
 
-    // 檢查是否為本地測試員 (Bypass Login)
-    const isLocalTest = user && user.displayName === '本地測試員';
+      // call Google verify API
+      const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
+      const params = new URLSearchParams();
+      params.append('secret', RECAPTCHA_SECRET);
+      params.append('response', token);
 
-    // verifyJson 範例: { success: true, score: 0.9, action: "submit", ... }
-    if (!isLocalTest && (!verifyJson.success || (verifyJson.score !== undefined && verifyJson.score < 0.5))) {
-      console.warn('reCAPTCHA failed', verifyJson);
-      return res.status(400).json({ error: 'reCAPTCHA 驗證失敗 (分數過低)，請再試一次' });
+      const verifyRes = await fetch(verifyUrl, { method: 'POST', body: params });
+      const verifyJson = await verifyRes.json();
+
+      // 檢查是否為本地測試員 (Bypass Login)
+      const isLocalTest = user && user.displayName === '本地測試員';
+
+      // verifyJson 範例: { success: true, score: 0.9, action: "submit", ... }
+      if (!isLocalTest && (!verifyJson.success || (verifyJson.score !== undefined && verifyJson.score < 0.5))) {
+        console.warn('reCAPTCHA failed', verifyJson);
+        return res.status(400).json({ error: 'reCAPTCHA 驗證失敗 (分數過低)，請再試一次' });
+      }
     }
 
     // 如果你使用 reCAPTCHA v3（有 score），你可以檢查 score >= 0.5 之類：
@@ -1019,7 +1023,9 @@ app.post('/api/jump', async (req, res) => {
     await writeQueue(room, q);
     
     // 通知所有客戶端立即更新 (這會觸發播放器的 checkNext)
-    io.to(room).emit('refresh');
+    if (typeof io !== 'undefined') {
+      io.to(room).emit('refresh');
+    }
     return res.json({ success: true });
   }
   res.status(400).json({ error: 'Invalid index' });

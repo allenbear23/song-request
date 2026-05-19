@@ -229,6 +229,24 @@
 
     function initLiff() {
       const btn = document.getElementById('btnLogin');
+      
+      if (!window.APP_CONFIG || !window.APP_CONFIG.LIFF_ID) {
+        console.warn('LIFF ID is not configured. Enabling Guest/Bypass room creation.');
+        if (btn) {
+          btn.style.background = '#6c757d';
+          btn.innerText = "以本地測試管理員身分建立";
+          btn.onclick = () => {
+            userProfile = {
+              userId: 'test_admin_user',
+              displayName: '本地測試管理員'
+            };
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('createSection').style.display = 'block';
+          };
+        }
+        return;
+      }
+
       if (btn) btn.innerText = "載入中...";
 
       liff.init({ liffId: window.APP_CONFIG.LIFF_ID }).then(() => {

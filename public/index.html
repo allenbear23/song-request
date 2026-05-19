@@ -614,6 +614,10 @@
         style="background:#06c755; color:#fff; font-weight:bold; padding:12px 24px; border-radius:30px; width:100%; font-size:16px;">
         LINE 登入
       </button>
+      <button onclick="handleGuestLogin()"
+        style="background:#6c757d; color:#fff; font-weight:bold; padding:12px 24px; border-radius:30px; width:100%; font-size:16px; margin-top:10px; border:none; cursor:pointer;">
+        以訪客身分繼續
+      </button>
       <p style="color:#666; font-size:12px; margin-top:15px;">(若瀏覽器詢問是否打開 LINE，請點擊「打開」)</p>
     </div>
   </div>
@@ -885,6 +889,19 @@
     window.APP_CONFIG = {};
     let currentLineProfile = null;
 
+    function handleGuestLogin() {
+      const guestId = 'guest_' + Math.floor(Math.random() * 10000);
+      const guestName = '訪客_' + Math.floor(100 + Math.random() * 900);
+      currentLineProfile = {
+        userId: guestId,
+        displayName: guestName,
+        pictureUrl: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(guestName) + '&background=6c757d&color=fff'
+      };
+      sessionStorage.setItem('line_user_id', guestId);
+      updateLoginUI();
+      showToast('登入成功', `已使用訪客身分「${guestName}」登入`, 'success');
+    }
+
     function initLiff() {
       // 本地測試 Bypass 機制: 若網址帶有 ?bypassLogin=1，就建立假的 LINE Profile
       if (new URLSearchParams(window.location.search).get('bypassLogin') === '1') {
@@ -895,6 +912,12 @@
           pictureUrl: 'https://ui-avatars.com/api/?name=測試&background=ff4444&color=fff'
         };
         sessionStorage.setItem('line_user_id', currentLineProfile.userId);
+        updateLoginUI();
+        return;
+      }
+
+      if (!window.APP_CONFIG || !window.APP_CONFIG.LIFF_ID) {
+        console.warn('LIFF ID is not configured. Guest Login only.');
         updateLoginUI();
         return;
       }
@@ -982,9 +1005,11 @@
         window.APP_CONFIG = await res.json();
 
         // 動態載入 reCAPTCHA script
-        const script = document.createElement('script');
-        script.src = `https://www.google.com/recaptcha/api.js?render=${window.APP_CONFIG.RECAPTCHA_SITE_KEY}`;
-        document.head.appendChild(script);
+        if (window.APP_CONFIG.RECAPTCHA_SITE_KEY) {
+          const script = document.createElement('script');
+          script.src = `https://www.google.com/recaptcha/api.js?render=${window.APP_CONFIG.RECAPTCHA_SITE_KEY}`;
+          document.head.appendChild(script);
+        }
 
         // 初始化 LIFF（會自動處理 OAuth 回調 + 自動登入）
         initLiff();
@@ -1007,12 +1032,21 @@
       const btn = document.querySelector('button[onclick="voteSkip()"]');
       if (btn) btn.classList.add('btn-loading');
 
-      // 觸發 reCAPTCHA v3
-      grecaptcha.ready(function () {
-        grecaptcha.execute(window.APP_CONFIG.RECAPTCHA_SITE_KEY, { action: 'vote' }).then(function (token) {
-          executeVoteSkip(token, btn);
+      if (!window.APP_CONFIG || !window.APP_CONFIG.RECAPTCHA_SITE_KEY) {
+        executeVoteSkip('bypass_recaptcha', btn);
+        return;
+      }
+
+      if (typeof grecaptcha !== 'undefined') {
+        // 觸發 reCAPTCHA v3
+        grecaptcha.ready(function () {
+          grecaptcha.execute(window.APP_CONFIG.RECAPTCHA_SITE_KEY, { action: 'vote' }).then(function (token) {
+            executeVoteSkip(token, btn);
+          });
         });
-      });
+      } else {
+        executeVoteSkip('bypass_recaptcha', btn);
+      }
     }
 
     function executeVoteSkip(captchaResponse, btnElement) {

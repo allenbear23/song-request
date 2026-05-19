@@ -141,12 +141,21 @@ function sendRequestFromInput() {
 
 // --- 點歌 API ---
 function sendRequest(url, btnElement = null) {
-  // 觸發 reCAPTCHA v3
-  grecaptcha.ready(function () {
-    grecaptcha.execute(window.APP_CONFIG.RECAPTCHA_SITE_KEY, { action: 'request' }).then(function (token) {
-      window.executeSendRequest(url, token, btnElement);
+  if (!window.APP_CONFIG || !window.APP_CONFIG.RECAPTCHA_SITE_KEY) {
+    window.executeSendRequest(url, 'bypass_recaptcha', btnElement);
+    return;
+  }
+  
+  if (typeof grecaptcha !== 'undefined') {
+    // 觸發 reCAPTCHA v3
+    grecaptcha.ready(function () {
+      grecaptcha.execute(window.APP_CONFIG.RECAPTCHA_SITE_KEY, { action: 'request' }).then(function (token) {
+        window.executeSendRequest(url, token, btnElement);
+      });
     });
-  });
+  } else {
+    window.executeSendRequest(url, 'bypass_recaptcha', btnElement);
+  }
 }
 
 window.executeSendRequest = function (url, token, btnElement = null) {

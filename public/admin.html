@@ -373,6 +373,33 @@
     }
 
     function startLiffFlow(btn) {
+      if (!window.APP_CONFIG || !window.APP_CONFIG.LIFF_ID) {
+        console.warn('LIFF ID is not configured. Enabling Guest/Bypass admin login.');
+        // 檢查該房間是否需要管理員登入
+        fetch('/api/room/login')
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              document.getElementById('loginOverlay').style.display = 'none';
+              initPage();
+            } else {
+              if (btn) {
+                btn.style.background = '#007bff';
+                btn.innerText = "以本地測試管理員登入";
+                btn.onclick = () => {
+                  sessionStorage.setItem('line_user_id', 'test_admin');
+                  document.getElementById('loginOverlay').style.display = 'none';
+                  initPage();
+                };
+              }
+            }
+          })
+          .catch(() => {
+            if (btn) btn.innerText = "連線失敗";
+          });
+        return;
+      }
+
       if (btn) btn.innerText = "載入中...";
 
       liff.init({ liffId: window.APP_CONFIG.LIFF_ID }).then(() => {

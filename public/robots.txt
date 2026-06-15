@@ -1,2 +1,2 @@
 User-agent: *
-Allow: /
+Allow: /Sitemap: https://song-request67.onrender.com/sitemap.xml
